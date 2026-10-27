@@ -55,15 +55,15 @@ dkms.conf
 *.dwo
 
 # Scenario build outputs (extensionless binaries not caught above)
-/user_aonlibc_cat/cat
-/user_aonlibc_cat/cat_defended
-/user_aonlibc_cat/victim.txt
-/user_aonlibc_signal/sig
-/user_aonlibc_signal/sig_defended
-/user_aonlibc_bench/bench
-/user_aonlibc_bench/bench_defended
-/user_aonlibc_bench/bench_seccomp
-/user_aonlibc_bench/bench_seccomp_ip
+/user/cat/cat
+/user/cat/cat_defended
+/user/cat/victim.txt
+/user/signal/sig
+/user/signal/sig_defended
+/user/bench/bench
+/user/bench/bench_defended
+/user/bench/bench_seccomp
+/user/bench/bench_seccomp_ip
 
 # Raw TSC samples of the cost runs (~90 MB); per_run.csv keeps their summary
 /evaluation/results/cost-*/**/*.bin

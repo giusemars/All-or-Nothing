@@ -1,8 +1,8 @@
 # `aonlibc` — the hardened syscall library
 
 The reusable "library" half of the PoC, shared by the scenarios
-([`../user_aonlibc_cat`](../user_aonlibc_cat) and
-[`../user_aonlibc_signal`](../user_aonlibc_signal)). Scenarios are built on a
+([`../user/cat`](../user/cat) and
+[`../user/signal`](../user/signal)). Scenarios are built on a
 **vendored nolibc** whose wrappers are **hardened named wrappers**: each one is
 an All-or-Nothing (AoN) block that invokes exactly the system call it is named
 after.
@@ -24,7 +24,7 @@ after.
     (an AoN `SA_RESTORER` that executes its block again through the ingress
     gate if its `rt_sigreturn` is refused).
     They are not nolibc API: a program that installs a handler declares them
-    itself (see [`../user_aonlibc_signal`](../user_aonlibc_signal)).
+    itself (see [`../user/signal`](../user/signal)).
 
   One source builds two variants, selected by `-DAON_DEFEND`:
   - **baseline** (no macro): plain `mov $nr,%eax ; syscall ; ret`, no ingress

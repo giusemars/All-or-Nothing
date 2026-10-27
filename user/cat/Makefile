@@ -1,7 +1,7 @@
 # aonlibc `cat` scenario for "All-or-Nothing Code Blocks".
 #
 # A minimal `cat` (open -> read loop -> write stdout -> close) linked
-# -nostdlib -static against the hardened syscall library in ../aonlibc (the
+# -nostdlib -static against the hardened syscall library in ../../aonlibc (the
 # vendored nolibc and the hardened named wrappers in aon_syscalls.S). Every
 # system call goes through those wrappers -- its INTENDED system calls (open,
 # read, write, close, exit). Invoked like `cat <filename>`; two reserved
@@ -13,10 +13,10 @@
 #
 # Scenario-local: the victim (cat.c/cat.h) and the simulated attacker primitives
 # (gadget.S / attacker.S) live here; the reusable syscall library is sourced
-# from ../aonlibc and the build tool from ../tools. This Makefile is still
+# from ../../aonlibc and the build tool from ../../tools. This Makefile is still
 # self-contained -- it compiles the library sources directly, with no sub-make.
 #
-# ONE aon_syscalls.S (in ../aonlibc) builds both variants, selected by
+# ONE aon_syscalls.S (in ../../aonlibc) builds both variants, selected by
 # -DAON_DEFEND:
 #
 #   cat           baseline / attacker-wins: the wrappers are plain
@@ -44,10 +44,10 @@
 #   make clean
 
 CC      := gcc
-AONLIBC := ../aonlibc
+AONLIBC := ../../aonlibc
 NOLIBC  := $(AONLIBC)/nolibc
-VERIFY  := ../tools/verify_ud2
-VERAON  := ../tools/verify_aon.sh
+VERIFY  := ../../tools/verify_ud2
+VERAON  := ../../tools/verify_aon.sh
 
 # Compile: -fno-pie fixes the load address (paired with -no-pie at link);
 # -fcf-protection=none keeps CET endbr64/shadow-stack markings out of cat.o;
@@ -63,7 +63,7 @@ ASFLAGS := -g
 # --gc-sections -z start-stop-gc includes only the wrappers of the required
 # system calls: each AoN block is its own `aon_text` input section, and
 # start-stop-gc stops the note's __start_/__stop_aon_text reference from
-# keeping all of them (see ../aonlibc/aon_syscalls.S). cat requires all five
+# keeping all of them (see ../../aonlibc/aon_syscalls.S). cat requires all five
 # file I/O + exit wrappers and none of the signal ones.
 LDFLAGS := -nostdlib -static -no-pie -Wl,--gc-sections -Wl,-z,start-stop-gc
 

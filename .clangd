@@ -1,5 +1,5 @@
 # clangd config for the whole repo. Each file's compile database is found
-# automatically (user_aonlibc_cat/compile_commands.json,
+# automatically (user/cat/compile_commands.json,
 # kernel/compile_commands.json).
 
 # kernel/: kbuild passes GCC-only flags that clang rejects; strip them.

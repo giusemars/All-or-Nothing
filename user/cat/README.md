@@ -1,4 +1,4 @@
-# `user_aonlibc_cat` — aonlibc `cat`, execve-reuse scenario
+# `user/cat` — aonlibc `cat`, execve-reuse scenario
 
 An **academic baseline** scenario for *All-or-Nothing Code Blocks*, and the
 **self-contained basis** for further scenarios: every source it needs lives in
@@ -6,17 +6,17 @@ this directory, so the other `user*` dirs can be removed without breaking it.
 It has two parts:
 
 - an **aonlibc** victim: `-nostdlib -static`, linked against the vendored
-  [`../aonlibc/nolibc/`](../aonlibc/nolibc), whose wrappers are the hardened
+  [`../../aonlibc/nolibc/`](../../aonlibc/nolibc), whose wrappers are the hardened
   named wrappers (AoN blocks) in
-  [`../aonlibc/aon_syscalls.S`](../aonlibc/aon_syscalls.S);
+  [`../../aonlibc/aon_syscalls.S`](../../aonlibc/aon_syscalls.S);
 - a three-mode **attack methodology** — `<filename>` / `aligned` /
   `misaligned` — with the simulated attacker primitives in
   [`gadget.S`](gadget.S) and [`attacker.S`](attacker.S).
 
 The only thing it uses from outside is the shared, scenario-independent build
-tool [`../tools/verify_ud2`](../tools/verify_ud2.c) (via
-[`../tools/verify_aon.sh`](../tools/verify_aon.sh)) and, at run time, the
-`aon_mod` kernel module in [`../kernel`](../kernel) — neither of which is a
+tool [`../../tools/verify_ud2`](../../tools/verify_ud2.c) (via
+[`../../tools/verify_aon.sh`](../../tools/verify_aon.sh)) and, at run time, the
+`aon_mod` kernel module in [`../../kernel`](../../kernel) — neither of which is a
 `user*` dir.
 
 ## Victim
@@ -49,8 +49,8 @@ visible); a blocked one leaves the process intact.
   gate, and the linked blocks form the AoN region
   `[__start_aon_text,__stop_aon_text)`, described by a `.note.aon` descriptor
   aon_mod reads at exec. The build then runs
-  [`../tools/verify_aon.sh`](../tools/verify_aon.sh) (which invokes the `ud2`
-  verifier `../tools/verify_ud2`) to prove the AoN region contains no stray
+  [`../../tools/verify_aon.sh`](../../tools/verify_aon.sh) (which invokes the `ud2`
+  verifier `../../tools/verify_ud2`) to prove the AoN region contains no stray
   `ud2` besides the declared ingress gates, and checks the note survived
   `--gc-sections`.
 
@@ -70,7 +70,7 @@ make defend-run      # seed victim.txt, run all defended modes
 make clean
 ```
 
-`defend-run` needs `aon_mod` loaded (`cd ../kernel && make load`); without it
+`defend-run` needs `aon_mod` loaded (`cd ../../kernel && make load`); without it
 the `ud2` ingress gates raise #UD, delivered as `SIGILL`.
 
 ## Expected results

@@ -1,0 +1,66 @@
+[
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-O0",
+      "-g",
+      "-Wall",
+      "-Wextra",
+      "-fno-pie",
+      "-fcf-protection=none",
+      "-I../../aonlibc/nolibc",
+      "-DNOLIBC_AON",
+      "-ffunction-sections",
+      "-fdata-sections",
+      "-c",
+      "-o",
+      "cat.o",
+      "cat.c"
+    ],
+    "directory": "/home/ghi/AoN/All-or-Nothing/user/cat",
+    "file": "/home/ghi/AoN/All-or-Nothing/user/cat/cat.c",
+    "output": "/home/ghi/AoN/All-or-Nothing/user/cat/cat.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-g",
+      "-fcf-protection=none",
+      "-c",
+      "-o",
+      "aon_syscalls.o",
+      "../../aonlibc/aon_syscalls.S"
+    ],
+    "directory": "/home/ghi/AoN/All-or-Nothing/user/cat",
+    "file": "/home/ghi/master/master-poc_debian/aonlibc/aon_syscalls.S",
+    "output": "/home/ghi/AoN/All-or-Nothing/user/cat/aon_syscalls.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-g",
+      "-fcf-protection=none",
+      "-c",
+      "-o",
+      "gadget.o",
+      "gadget.S"
+    ],
+    "directory": "/home/ghi/AoN/All-or-Nothing/user/cat",
+    "file": "/home/ghi/AoN/All-or-Nothing/user/cat/gadget.S",
+    "output": "/home/ghi/AoN/All-or-Nothing/user/cat/gadget.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-g",
+      "-fcf-protection=none",
+      "-c",
+      "-o",
+      "attacker.o",
+      "attacker.S"
+    ],
+    "directory": "/home/ghi/AoN/All-or-Nothing/user/cat",
+    "file": "/home/ghi/AoN/All-or-Nothing/user/cat/attacker.S",
+    "output": "/home/ghi/AoN/All-or-Nothing/user/cat/attacker.o"
+  }
+]

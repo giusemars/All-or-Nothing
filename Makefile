@@ -5,15 +5,15 @@
 #   make clean       run `make clean` in every subproject
 #
 # The hardened syscall library (aonlibc/) has no build of its own: the scenario
-# compiles its sources directly (see user_aonlibc_cat/Makefile).
+# compiles its sources directly (see user/cat/Makefile).
 
-SUBDIRS := user_aonlibc_cat user_aonlibc_signal user_aonlibc_bench kernel
+SUBDIRS := user/cat user/signal user/bench kernel
 
 .PHONY: all clean
 all:
-	$(MAKE) -C user_aonlibc_cat cat cat_defended
-	$(MAKE) -C user_aonlibc_signal sig sig_defended
-	$(MAKE) -C user_aonlibc_bench all
+	$(MAKE) -C user/cat cat cat_defended
+	$(MAKE) -C user/signal sig sig_defended
+	$(MAKE) -C user/bench all
 	$(MAKE) -C kernel
 
 clean:

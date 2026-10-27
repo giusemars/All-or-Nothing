@@ -17,7 +17,7 @@
 #                     -- a single-stepped `write` -- so there is no timer here.
 #
 # Self-contained like the other scenarios: it compiles the shared library
-# sources (../aonlibc) and the build tool (../tools) directly, no sub-make.
+# sources (../../aonlibc) and the build tool (../../tools) directly, no sub-make.
 # Only the simulated attacker primitive (attacker.S) is local; there is no
 # misaligned-site gadget here (vector B is covered by the `cat` scenario).
 #
@@ -45,10 +45,10 @@
 #   make clean
 
 CC      := gcc
-AONLIBC := ../aonlibc
+AONLIBC := ../../aonlibc
 NOLIBC  := $(AONLIBC)/nolibc
-VERIFY  := ../tools/verify_ud2
-VERAON  := ../tools/verify_aon.sh
+VERIFY  := ../../tools/verify_ud2
+VERAON  := ../../tools/verify_aon.sh
 
 CFLAGS  := -O0 -g -Wall -Wextra -fno-pie -fcf-protection=none \
            -ffunction-sections -fdata-sections -I$(NOLIBC) -DNOLIBC_AON

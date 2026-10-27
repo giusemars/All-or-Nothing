@@ -77,7 +77,7 @@ struct t_sigaction {
 	unsigned long	 mask;		/* 64 signals */
 };
 
-/* ../aonlibc/aon_syscalls.S: the signal wrappers (not part of nolibc's API)
+/* ../../aonlibc/aon_syscalls.S: the signal wrappers (not part of nolibc's API)
  * and the ingress gate of the write block we single-step through. */
 long sys_rt_sigaction(int sig, const struct t_sigaction *act,
 		      struct t_sigaction *oact, size_t sigsetsize);

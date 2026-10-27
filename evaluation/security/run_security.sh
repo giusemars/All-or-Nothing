@@ -32,13 +32,13 @@ root() { if [ "$(id -u)" = 0 ]; then "$@"; else ${AON_SUDO:-sudo} "$@"; fi; }
 klog() { root dmesg | sed 's/^\[[ 0-9.]*\] //'; }
 disarms() { cat /sys/module/aon_mod/parameters/signal_disarms; }
 
-cat_dir="$top/user_aonlibc_cat"
-sig_dir="$top/user_aonlibc_signal"
+cat_dir="$top/user/cat"
+sig_dir="$top/user/signal"
 
 # ---- environment ---------------------------------------------------------
 {
   echo "date:      $(date -Is)"
-  echo "commit:    $(git -C "$top" rev-parse --short HEAD) ($(git -C "$top" rev-parse --abbrev-ref HEAD))$(git -C "$top" diff --quiet HEAD -- aonlibc kernel tools user_aonlibc_cat user_aonlibc_signal || echo ', DIRTY')"
+  echo "commit:    $(git -C "$top" rev-parse --short HEAD) ($(git -C "$top" rev-parse --abbrev-ref HEAD))$(git -C "$top" diff --quiet HEAD -- aonlibc kernel tools user/cat user/signal || echo ', DIRTY')"
   echo "kernel:    $(uname -srm)"
   echo "cpu:       $(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2- | sed 's/^ //')"
   echo "virt:      $(systemd-detect-virt 2>/dev/null || echo unknown)"

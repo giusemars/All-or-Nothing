@@ -38,7 +38,7 @@
 
 /* ---- Egress gate of the read wrapper (the reused gadget) ---------------
  * The `syscall` instruction of the read AoN block in
- * ../aonlibc/aon_syscalls.S, past the `ud2` ingress gate and the body. The
+ * ../../aonlibc/aon_syscalls.S, past the `ud2` ingress gate and the body. The
  * attacker is assumed to have leaked this address; the `attack-*` operands jump
  * onto it with %rax forced to 59 (execve) from inside a signal handler.
  * Exported in both builds, so the attack driver is identical across them. This

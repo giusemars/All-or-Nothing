@@ -1,9 +1,9 @@
 # aonlibc cost benchmark for "All-or-Nothing Code Blocks" (evaluation rows
-# P1-P3, driven by ../evaluation/cost/run_cost.sh).
+# P1-P3, driven by ../../evaluation/cost/run_cost.sh).
 #
 # bench.c is a loop of calls to the hardened named wrapper of `write` (see
-# bench.c). Same layout and flags as ../user_aonlibc_cat: -nostdlib -static
-# against ../aonlibc, --gc-sections -z start-stop-gc so only the wrappers of
+# bench.c). Same layout and flags as ../cat: -nostdlib -static
+# against ../../aonlibc, --gc-sections -z start-stop-gc so only the wrappers of
 # the required system calls (open, read, write, lseek, exit) are linked. Four
 # binaries:
 #
@@ -21,10 +21,10 @@
 #   make clean
 
 CC      := gcc
-AONLIBC := ../aonlibc
+AONLIBC := ../../aonlibc
 NOLIBC  := $(AONLIBC)/nolibc
-VERIFY  := ../tools/verify_ud2
-VERAON  := ../tools/verify_aon.sh
+VERIFY  := ../../tools/verify_ud2
+VERAON  := ../../tools/verify_aon.sh
 
 CFLAGS  := -O2 -g -Wall -Wextra -fno-pie -fcf-protection=none \
            -ffunction-sections -fdata-sections -I$(NOLIBC) -DNOLIBC_AON

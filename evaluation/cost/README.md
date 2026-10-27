@@ -5,7 +5,7 @@ compares with seccomp, and what the module costs processes it does not protect.
 
 | File | Role |
 | --- | --- |
-| `../../user_aonlibc_bench/` | the benchmark scenario: a loop of calls to the hardened `write` wrapper (`write(-1, buf, 0)`, or real writes of `SIZE` bytes to a file), built as `bench` (baseline), `bench_defended` (AoN blocks), `bench_seccomp` (filter on the number), `bench_seccomp_ip` (number + instruction pointer) |
+| `../../user/bench/` | the benchmark scenario: a loop of calls to the hardened `write` wrapper (`write(-1, buf, 0)`, or real writes of `SIZE` bytes to a file), built as `bench` (baseline), `bench_defended` (AoN blocks), `bench_seccomp` (filter on the number), `bench_seccomp_ip` (number + instruction pointer) |
 | `tsc_calib.c` | P0 TSC calibration (ticks/ns against `CLOCK_MONOTONIC`), used to convert every sample of the run to ns |
 | `syscall_latency.c` | P0 reference costs (glibc, pulled back from `9th_run`), `syscall_latency <op>` streams one TSC-timed operation per sample: timer, null / `write(-1)` / invalid-nr system call, `ud2`+SIGILL, `int3`+SIGTRAP |
 | `cost.conf` | the settings of a run: results directory, runs, call caps, CPU, owner, pause, write sizes and their sink file, and the batch-means inputs (d, first n, k_test, k_final, ρ*, α, γ) |

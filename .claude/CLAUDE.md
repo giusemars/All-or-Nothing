@@ -103,7 +103,7 @@ items (other kernel entry paths for system calls, AoN region immutability).
 
 This is the final, trimmed run: two scenarios built on the shared aonlibc
 syscall library, plus the kernel module and the build-time verifier.
-`user_aonlibc_cat/` is the template for further scenarios.
+`user/cat/` is the template for further scenarios.
 
 - `aonlibc/` — the hardened syscall library (shared), see `aonlibc/README.md`:
   - `aonlibc/nolibc/` — vendored nolibc; under `-DNOLIBC_AON`, `sys.h` makes the
@@ -117,7 +117,7 @@ syscall library, plus the kernel module and the build-time verifier.
     section; scenarios link with `--gc-sections -z start-stop-gc` so only the
     wrappers of the required system calls are included, AoN region =
     `[__start_aon_text,__stop_aon_text)`
-- `user_aonlibc_cat/` — the `cat` scenario (victim + attack driver):
+- `user/cat/` — the `cat` scenario (victim + attack driver):
   - `cat.c`, `cat.h` — minimal `cat`, invoked like `cat <filename>`; the two
     reserved operands `aligned` and `misaligned` instead trigger vector A / B,
     any other operand is catted for real; attacker goal is an `execve` (nr 59),
@@ -129,7 +129,7 @@ syscall library, plus the kernel module and the build-time verifier.
   - `Makefile` — `make` (→`./cat`) / `make cat_defended` / `make run` /
     `make defend-run` / `make clean` (run from the dir); self-contained,
     compiles the `aonlibc/` sources directly
-- `user_aonlibc_signal/` — same layout as `cat` (no `gadget.S`/`reset.sh`),
+- `user/signal/` — same layout as `cat` (no `gadget.S`/`reset.sh`),
   isolating the module's **signal rule**. One source-stepped `write` carrier
   drives three operands: `correctness` (a signal delivered while the thread is
   armed inside an AoN block refuses that block's egress gate → retry),
@@ -138,7 +138,7 @@ syscall library, plus the kernel module and the build-time verifier.
   arming never leaks into the handler). Uses the rt_sigaction wrapper + the AoN
   rt_sigreturn restorer (not setitimer).
   `make` / `make sig_defended` / `make run` / `make defend-run`
-- `user_aonlibc_bench/` — cost benchmark (no attack): a loop of calls to the
+- `user/bench/` — cost benchmark (no attack): a loop of calls to the
   hardened `write` wrapper, `write(-1, buf, 0)` or, with `SIZE SINK MAX`
   operands, real writes of SIZE bytes to a file kept within MAX bytes by an
   untimed `lseek`; built as `bench` / `bench_defended` / `bench_seccomp` /

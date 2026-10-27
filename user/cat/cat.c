@@ -6,7 +6,7 @@
  * scenarios. It has two parts:
  *
  *   - the victim is linked -nostdlib -static against the hardened syscall
- *     library in ../aonlibc (vendored nolibc + aon_syscalls.S) and invokes
+ *     library in ../../aonlibc (vendored nolibc + aon_syscalls.S) and invokes
  *     every system call through its hardened named wrappers: open / read /
  *     write / close / exit. Those are its INTENDED system calls.
  *   - it is invoked like `cat <filename>`: it opens that file, reads it in a

@@ -1,4 +1,4 @@
-# `user_aonlibc_signal` — the signal rule, both sides
+# `user/signal` — the signal rule, both sides
 
 A focused scenario for `aon_mod`'s **signal rule** — the kprobe on
 `x64_setup_rt_frame` that **disarms the thread before a handler is run**, and
@@ -20,8 +20,8 @@ code (`attack-unarmed`), or the trap on the block's egress gate while armed
 the hijack (`attack-*`).
 
 Self-contained like the other scenarios — every source it needs is here, plus
-the shared library ([`../aonlibc`](../aonlibc)) and the build tool
-([`../tools/verify_aon.sh`](../tools/verify_aon.sh)). The only local attacker
+the shared library ([`../../aonlibc`](../../aonlibc)) and the build tool
+([`../../tools/verify_aon.sh`](../../tools/verify_aon.sh)). The only local attacker
 primitive is the simulated `hijack` ([`attacker.S`](attacker.S)); there is no
 misaligned-site gadget (vector B is the `cat` scenario's job).
 
@@ -95,7 +95,7 @@ the defended build `dmesg` shows the difference between the two:
   only because the `attack-*` modes reuse its egress gate — plus `write`,
   `exit`, `rt_sigaction`, `rt_sigreturn`), described by a `.note.aon`
   descriptor. The build runs
-  [`../tools/verify_aon.sh`](../tools/verify_aon.sh) and checks the note
+  [`../../tools/verify_aon.sh`](../../tools/verify_aon.sh) and checks the note
   survived `--gc-sections`.
 
 `sig.c` never calls `read()`; the read block stays linked only because `sig.c`
@@ -111,7 +111,7 @@ make defend-run     # run all defended modes
 make clean
 ```
 
-`defend-run` needs `aon_mod` loaded (`cd ../kernel && make load`); without it
+`defend-run` needs `aon_mod` loaded (`cd ../../kernel && make load`); without it
 the `ud2` ingress gates raise `#UD`, delivered as `SIGILL`.
 
 ## Expected results

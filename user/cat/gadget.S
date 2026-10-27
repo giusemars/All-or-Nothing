@@ -5,7 +5,7 @@
  * benign_compute's immediate operand contains the bytes 0f 05 c3 (`syscall ;
  * ret`). Entered two bytes in -- not at an intended instruction boundary --
  * the CPU decodes them as a real `syscall`: a misaligned gadget. It is
- * application code, not part of the hardened syscall library (../aonlibc), so
+ * application code, not part of the hardened syscall library (../../aonlibc), so
  * it lies outside the AoN region in the defended build too.
  */
 

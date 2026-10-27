@@ -4,7 +4,7 @@
  *
  * ACADEMIC BASELINE. The victim is a minimal `cat`: open a file, read it in a
  * loop, write each chunk to stdout, close. All of its I/O goes through the
- * hardened named wrappers in ../aonlibc/aon_syscalls.S (open / read / write /
+ * hardened named wrappers in ../../aonlibc/aon_syscalls.S (open / read / write /
  * close / exit) -- its INTENDED system calls. `execve` (nr 59) is deliberately
  * NOT one of them and the victim never invokes it; the only way to invoke it
  * is by reusing a `syscall` instruction, which is what the thesis is about.
@@ -17,7 +17,7 @@
 
 /* ---- Egress gate of the read wrapper (vector A) ------------------------
  * The `syscall` instruction of the read AoN block in
- * ../aonlibc/aon_syscalls.S, past the `ud2` ingress gate and the
+ * ../../aonlibc/aon_syscalls.S, past the `ud2` ingress gate and the
  * `mov $0,%eax` body. The attacker is assumed to have leaked this address.
  * Jumping onto it with %rax forced to 59 executes an aligned gadget (an
  * unintended execution of the read block) that invokes execve -- the attack

@@ -1,0 +1,50 @@
+[
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-O0",
+      "-g",
+      "-Wall",
+      "-Wextra",
+      "-fno-pie",
+      "-fcf-protection=none",
+      "-ffunction-sections",
+      "-fdata-sections",
+      "-I../../aonlibc/nolibc",
+      "-DNOLIBC_AON",
+      "-c",
+      "-o",
+      "sig.o",
+      "sig.c"
+    ],
+    "directory": "/home/ghi/AoN/All-or-Nothing/user/signal",
+    "file": "/home/ghi/AoN/All-or-Nothing/user/signal/sig.c",
+    "output": "/home/ghi/AoN/All-or-Nothing/user/signal/sig.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-g",
+      "-c",
+      "-o",
+      "aon_syscalls.o",
+      "../../aonlibc/aon_syscalls.S"
+    ],
+    "directory": "/home/ghi/AoN/All-or-Nothing/user/signal",
+    "file": "/home/ghi/master/master-poc_debian/aonlibc/aon_syscalls.S",
+    "output": "/home/ghi/AoN/All-or-Nothing/user/signal/aon_syscalls.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-g",
+      "-c",
+      "-o",
+      "attacker.o",
+      "attacker.S"
+    ],
+    "directory": "/home/ghi/AoN/All-or-Nothing/user/signal",
+    "file": "/home/ghi/AoN/All-or-Nothing/user/signal/attacker.S",
+    "output": "/home/ghi/AoN/All-or-Nothing/user/signal/attacker.o"
+  }
+]
