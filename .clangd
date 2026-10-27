@@ -1,0 +1,27 @@
+# clangd config for the whole repo. Each file's compile database is found
+# automatically (user_aonlibc_cat/compile_commands.json,
+# kernel/compile_commands.json).
+
+# kernel/: kbuild passes GCC-only flags that clang rejects; strip them.
+If:
+  PathMatch: kernel/.*
+CompileFlags:
+  Remove:
+    - -mpreferred-stack-boundary=*
+    - -mindirect-branch=*
+    - -mindirect-branch-register
+    - -mfunction-return=*
+    - -mrecord-mcount
+    - -mno-fp-ret-in-387
+    - -mskip-rax-setup
+    - -fno-allow-store-data-races
+    - -fmin-function-alignment=*
+    - -fconserve-stack
+    - -falign-jumps=*
+    - -falign-loops=*
+    - -fno-var-tracking-assignments
+    - -fsanitize=bounds-strict
+Diagnostics:
+  ClangTidy:
+    Remove:
+      - bugprone-sizeof-expression

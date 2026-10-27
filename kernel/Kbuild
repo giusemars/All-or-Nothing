@@ -1,0 +1,5 @@
+# Kbuild for the AoN enforcement module.
+# Built out-of-tree: make -C /lib/modules/$(uname -r)/build M=$(PWD) modules
+obj-m := aon_mod.o
+aon_mod-y := aon_main.o aon_lifecycle.o aon_elf.o aon_state.o aon_enforce.o
+ccflags-y := -I$(src)

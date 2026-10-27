@@ -53,3 +53,30 @@ dkms.conf
 
 # debug information files
 *.dwo
+
+# Scenario build outputs (extensionless binaries not caught above)
+/user_aonlibc_cat/cat
+/user_aonlibc_cat/cat_defended
+/user_aonlibc_cat/victim.txt
+/user_aonlibc_signal/sig
+/user_aonlibc_signal/sig_defended
+/user_aonlibc_bench/bench
+/user_aonlibc_bench/bench_defended
+/user_aonlibc_bench/bench_seccomp
+/user_aonlibc_bench/bench_seccomp_ip
+
+# Raw TSC samples of the cost runs (~90 MB); per_run.csv keeps their summary
+/evaluation/results/cost-*/**/*.bin
+
+# Verifier build output (extensionless binary not caught above)
+/tools/verify_ud2
+# out-of-tree kernel module build leftovers
+kernel/.tmp_versions/
+kernel/modules.order
+
+.cache
+kernel/.cache
+
+
+# Python bytecode (analyze_cost.py imports batch_means.py)
+__pycache__/

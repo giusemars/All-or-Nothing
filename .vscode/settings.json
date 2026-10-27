@@ -1,0 +1,14 @@
+{
+    "files.exclude": {
+        "**/.cache": true
+    },
+    "search.exclude": {
+        "**/.cache": true
+    },
+    "files.watcherExclude": {
+        "**/.cache/**": true
+    },
+    "workbench.editorAssociations": {
+        "*.md": "vscode.markdown.preview.editor"
+    }
+}
