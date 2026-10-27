@@ -138,7 +138,7 @@ syscall library, plus the kernel module and the build-time verifier.
   arming never leaks into the handler). Uses the rt_sigaction wrapper + the AoN
   rt_sigreturn restorer (not setitimer).
   `make` / `make sig_defended` / `make run` / `make defend-run`
-- `user/bench/` — cost benchmark (no attack): a loop of calls to the
+- `evaluation/bench/` — cost benchmark (no attack): a loop of calls to the
   hardened `write` wrapper, `write(-1, buf, 0)` or, with `SIZE SINK MAX`
   operands, real writes of SIZE bytes to a file kept within MAX bytes by an
   untimed `lseek`; built as `bench` / `bench_defended` / `bench_seccomp` /

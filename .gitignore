@@ -60,10 +60,10 @@ dkms.conf
 /user/cat/victim.txt
 /user/signal/sig
 /user/signal/sig_defended
-/user/bench/bench
-/user/bench/bench_defended
-/user/bench/bench_seccomp
-/user/bench/bench_seccomp_ip
+/evaluation/bench/bench
+/evaluation/bench/bench_defended
+/evaluation/bench/bench_seccomp
+/evaluation/bench/bench_seccomp_ip
 
 # Raw TSC samples of the cost runs (~90 MB); per_run.csv keeps their summary
 /evaluation/results/cost-*/**/*.bin

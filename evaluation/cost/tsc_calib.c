@@ -3,7 +3,7 @@
  *
  * Prints the TSC frequency in ticks per ns, measured against CLOCK_MONOTONIC:
  * the median of REPS windows of 100 ms. analyze_cost.py converts every tick
- * count of the run (user/bench/bench and syscall_latency, which time
+ * count of the run (evaluation/bench/bench and syscall_latency, which time
  * with the TSC: the defended bench cannot call clock_gettime, it would be
  * refused) to ns with it.
  *

@@ -191,7 +191,7 @@ sys_exit:
 
 /* ---------- off_t sys_lseek(int fd, off_t offset, int whence) -----------
  * Not a cat intended system call: the cost benchmark rewinds its sink file
- * with it (user/bench), so only the bench links it. */
+ * with it (evaluation/bench), so only the bench links it. */
 	.section	aon_text, "ax", @progbits, unique, 9
 	.globl	__aon_lseek
 	.type	__aon_lseek, @function

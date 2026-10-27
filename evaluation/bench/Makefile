@@ -1,8 +1,8 @@
 # aonlibc cost benchmark for "All-or-Nothing Code Blocks" (evaluation rows
-# P1-P3, driven by ../../evaluation/cost/run_cost.sh).
+# P1-P3, driven by ../cost/run_cost.sh).
 #
 # bench.c is a loop of calls to the hardened named wrapper of `write` (see
-# bench.c). Same layout and flags as ../cat: -nostdlib -static
+# bench.c). Same layout and flags as ../../user/cat: -nostdlib -static
 # against ../../aonlibc, --gc-sections -z start-stop-gc so only the wrappers of
 # the required system calls (open, read, write, lseek, exit) are linked. Four
 # binaries:

@@ -1,0 +1,98 @@
+[
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-O2",
+      "-g",
+      "-Wall",
+      "-Wextra",
+      "-fno-pie",
+      "-fcf-protection=none",
+      "-ffunction-sections",
+      "-fdata-sections",
+      "-I../../aonlibc/nolibc",
+      "-DNOLIBC_AON",
+      "-c",
+      "-o",
+      "bench.o",
+      "bench.c"
+    ],
+    "directory": "/home/ghi/AoN/All-or-Nothing/evaluation/bench",
+    "file": "/home/ghi/AoN/All-or-Nothing/evaluation/bench/bench.c",
+    "output": "/home/ghi/AoN/All-or-Nothing/evaluation/bench/bench.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-g",
+      "-c",
+      "-o",
+      "aon_syscalls.o",
+      "../../aonlibc/aon_syscalls.S"
+    ],
+    "directory": "/home/ghi/AoN/All-or-Nothing/evaluation/bench",
+    "file": "/home/ghi/AoN/All-or-Nothing/aonlibc/aon_syscalls.S",
+    "output": "/home/ghi/AoN/All-or-Nothing/evaluation/bench/aon_syscalls.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-g",
+      "-DAON_DEFEND",
+      "-c",
+      "-o",
+      "aon_syscalls.aon.o",
+      "../../aonlibc/aon_syscalls.S"
+    ],
+    "directory": "/home/ghi/AoN/All-or-Nothing/evaluation/bench",
+    "file": "/home/ghi/AoN/All-or-Nothing/aonlibc/aon_syscalls.S",
+    "output": "/home/ghi/AoN/All-or-Nothing/evaluation/bench/aon_syscalls.aon.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-O2",
+      "-g",
+      "-Wall",
+      "-Wextra",
+      "-fno-pie",
+      "-fcf-protection=none",
+      "-ffunction-sections",
+      "-fdata-sections",
+      "-I../../aonlibc/nolibc",
+      "-DNOLIBC_AON",
+      "-DBENCH_SECCOMP",
+      "-c",
+      "-o",
+      "bench_seccomp.o",
+      "bench.c"
+    ],
+    "directory": "/home/ghi/AoN/All-or-Nothing/evaluation/bench",
+    "file": "/home/ghi/AoN/All-or-Nothing/evaluation/bench/bench.c",
+    "output": "/home/ghi/AoN/All-or-Nothing/evaluation/bench/bench_seccomp.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-O2",
+      "-g",
+      "-Wall",
+      "-Wextra",
+      "-fno-pie",
+      "-fcf-protection=none",
+      "-ffunction-sections",
+      "-fdata-sections",
+      "-I../../aonlibc/nolibc",
+      "-DNOLIBC_AON",
+      "-DBENCH_SECCOMP",
+      "-DBENCH_SECCOMP_IP",
+      "-c",
+      "-o",
+      "bench_seccomp_ip.o",
+      "bench.c"
+    ],
+    "directory": "/home/ghi/AoN/All-or-Nothing/evaluation/bench",
+    "file": "/home/ghi/AoN/All-or-Nothing/evaluation/bench/bench.c",
+    "output": "/home/ghi/AoN/All-or-Nothing/evaluation/bench/bench_seccomp_ip.o"
+  }
+]

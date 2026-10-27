@@ -62,7 +62,7 @@ case "$out" in /*) ;; *) out="$top/$out" ;; esac
 mkdir -p "$out/p0" "$out/lat" "$out/collateral"
 out="$(cd "$out" && pwd)"
 
-bd="$top/user/bench"
+bd="$top/evaluation/bench"
 mod="$top/kernel/aon_mod.ko"
 loaded() { lsmod | grep -q '^aon_mod '; }
 load() { loaded || insmod "$mod"; }
@@ -78,7 +78,7 @@ end=$(( first + RUNS - 1 ))
 {
   echo "== runs $first-$end"
   echo "date:        $(date -Is)"
-  echo "commit:      $(git rev-parse --short HEAD) ($(git rev-parse --abbrev-ref HEAD))$([ -z "$(git status --porcelain -- aonlibc kernel tools user/bench evaluation/cost)" ] || echo ', uncommitted changes in the measured sources')"
+  echo "commit:      $(git rev-parse --short HEAD) ($(git rev-parse --abbrev-ref HEAD))$([ -z "$(git status --porcelain -- aonlibc kernel tools evaluation/bench evaluation/cost)" ] || echo ', uncommitted changes in the measured sources')"
   echo "kernel:      $(uname -srm)"
   echo "cmdline:     $(cat /proc/cmdline)"
   echo "cpu:         $(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2- | sed 's/^ //')"
