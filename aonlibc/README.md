@@ -60,8 +60,7 @@ self-contained and compiles these sources directly:
   the required system calls are included.
 
 The defended binary is then checked with the shared build tool
-[`../tools/verify_aon.sh`](../tools/verify_aon.sh) (which runs
-`../tools/verify_ud2`): it proves `[__start_aon_text,__stop_aon_text)` contains
+[`../tools/verify_aon.py`](../tools/verify_aon.py): it proves `[__start_aon_text,__stop_aon_text)` contains
 no stray `ud2` besides the declared ingress gates, and that the `.note.aon`
 descriptor survived `--gc-sections`.
 

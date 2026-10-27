@@ -21,7 +21,7 @@ the hijack (`attack-*`).
 
 Self-contained like the other scenarios — every source it needs is here, plus
 the shared library ([`../../aonlibc`](../../aonlibc)) and the build tool
-([`../../tools/verify_aon.sh`](../../tools/verify_aon.sh)). The only local attacker
+([`../../tools/verify_aon.py`](../../tools/verify_aon.py)). The only local attacker
 primitive is the simulated `hijack` ([`attacker.S`](attacker.S)); there is no
 misaligned-site gadget (vector B is the `cat` scenario's job).
 
@@ -95,7 +95,7 @@ the defended build `dmesg` shows the difference between the two:
   only because the `attack-*` modes reuse its egress gate — plus `write`,
   `exit`, `rt_sigaction`, `rt_sigreturn`), described by a `.note.aon`
   descriptor. The build runs
-  [`../../tools/verify_aon.sh`](../../tools/verify_aon.sh) and checks the note
+  [`../../tools/verify_aon.py`](../../tools/verify_aon.py) and checks the note
   survived `--gc-sections`.
 
 `sig.c` never calls `read()`; the read block stays linked only because `sig.c`

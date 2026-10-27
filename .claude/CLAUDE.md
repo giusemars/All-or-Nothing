@@ -149,9 +149,9 @@ syscall library, plus the kernel module and the build-time verifier.
   C1–C5, S1–S4) and `cost/` (`run_cost.sh` + `analyze_cost.py`, cost rows
   P0–P3); results of both in `evaluation/results/`
 - `kernel/` — AoN kernel module (`aon_mod.ko`)
-- `tools/` — the **build-time verifier** component: `verify_ud2.c` (no stray
+- `tools/` — the **build-time verifier** component: `verify_aon.py` (no stray
   `ud2` in the AoN region besides the ingress gates), run on every defended
-  build through `verify_aon.sh`
+  build
 - top-level `Makefile` — `make all` builds the scenarios + the module
 - Usage: `./cat <filename|aligned|misaligned>` (and the `./cat_defended` build)
 

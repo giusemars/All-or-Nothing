@@ -24,7 +24,7 @@
 #   cat_defended  the same program whose wrappers become AoN blocks with a
 #                 `ud2` ingress gate, plus a .note.aon descriptor of the AoN
 #                 region [__start_aon_text,__stop_aon_text) that aon_mod reads
-#                 at exec. After linking, verify_aon.sh proves the AoN region
+#                 at exec. After linking, verify_aon.py proves the AoN region
 #                 holds no stray ud2 besides the ingress gates, and readelf
 #                 checks the note survived --gc-sections.
 #
@@ -46,8 +46,7 @@
 CC      := gcc
 AONLIBC := ../../aonlibc
 NOLIBC  := $(AONLIBC)/nolibc
-VERIFY  := ../../tools/verify_ud2
-VERAON  := ../../tools/verify_aon.sh
+VERAON  := ../../tools/verify_aon.py
 
 # Compile: -fno-pie fixes the load address (paired with -no-pie at link);
 # -fcf-protection=none keeps CET endbr64/shadow-stack markings out of cat.o;
@@ -88,10 +87,10 @@ attacker.o: attacker.S
 # ---- Defended variant ---------------------------------------------------
 # Same cat.o / gadget.o / attacker.o; aon_syscalls is rebuilt with -DAON_DEFEND
 # so each wrapper gains its `ud2` ingress gate and the .note.aon descriptor is
-# emitted. verify_aon.sh then proves the only ud2 in the AoN region
+# emitted. verify_aon.py then proves the only ud2 in the AoN region
 # [__start_aon_text,__stop_aon_text) are the declared ingress gates, and
 # readelf checks the .note.aon descriptor survived --gc-sections.
-cat_defended: cat.o aon_syscalls.aon.o gadget.o attacker.o $(VERIFY)
+cat_defended: cat.o aon_syscalls.aon.o gadget.o attacker.o
 	$(CC) $(LDFLAGS) -o $@ cat.o aon_syscalls.aon.o gadget.o attacker.o
 	$(VERAON) $@
 	@readelf -n $@ | grep -q 'AoN' || \
@@ -100,9 +99,6 @@ cat_defended: cat.o aon_syscalls.aon.o gadget.o attacker.o $(VERIFY)
 
 aon_syscalls.aon.o: $(AONLIBC)/aon_syscalls.S
 	$(CC) $(ASFLAGS) -DAON_DEFEND -c $< -o $@
-
-$(VERIFY): $(VERIFY).c
-	$(CC) -O2 -Wall -Wextra -o $@ $<
 
 # ---- Run / clean --------------------------------------------------------
 # Baseline: aligned and misaligned both replace the process with /bin/echo

@@ -69,7 +69,6 @@ dkms.conf
 /evaluation/results/cost-*/**/*.bin
 
 # Verifier build output (extensionless binary not caught above)
-/tools/verify_ud2
 # out-of-tree kernel module build leftovers
 kernel/.tmp_versions/
 kernel/modules.order

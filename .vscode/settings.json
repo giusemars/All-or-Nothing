@@ -1,6 +1,7 @@
 {
     "files.exclude": {
-        "**/.cache": true
+        "**/.cache": true,
+        "**/__pycache__": true
     },
     "search.exclude": {
         "**/.cache": true
@@ -10,5 +11,23 @@
     },
     "workbench.editorAssociations": {
         "*.md": "vscode.markdown.preview.editor"
+    },
+    // Python docstrings in the color of # comments (VS Code's default
+    // comment colors: dark themes, then the light ones).
+    "editor.tokenColorCustomizations": {
+        "textMateRules": [
+            {
+                "scope": "string.quoted.docstring",
+                "settings": { "foreground": "#6A9955" }
+            }
+        ],
+        "[Default Light Modern][Default Light+][Visual Studio Light]": {
+            "textMateRules": [
+                {
+                    "scope": "string.quoted.docstring",
+                    "settings": { "foreground": "#008000" }
+                }
+            ]
+        }
     }
 }

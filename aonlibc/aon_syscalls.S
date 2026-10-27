@@ -79,7 +79,7 @@
  * one of these egress gates, after passing its ingress gate: a `syscall`
  * anywhere else in the address space is refused (design property B1).
  *
- * tools/verify_aon.sh discovers the ingress gates from the __aon_* symbols
+ * tools/verify_aon.py discovers the ingress gates from the __aon_* symbols
  * (only the linked ones survive) and the bounds from __start_/__stop_aon_text;
  * it is run on the defended binary only.
  */

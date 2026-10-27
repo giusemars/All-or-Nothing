@@ -58,7 +58,7 @@ for b in "$cat_dir/cat" "$cat_dir/cat_defended" "$sig_dir/sig" "$sig_dir/sig_def
   lib="$(dirname "$b")/aon_syscalls.aon.o"
   python3 "$ev/analyze_binary.py" "$b" "$lib" > "$out/static/$n.json"
   case "$n" in *_defended)
-    "$top/tools/verify_aon.sh" "$b" > "$out/static/$n.verify.txt" 2>&1 \
+    "$top/tools/verify_aon.py" "$b" > "$out/static/$n.verify.txt" 2>&1 \
       && echo "exit 0" >> "$out/static/$n.verify.txt" \
       || echo "exit $?" >> "$out/static/$n.verify.txt"
     readelf -n "$b" > "$out/static/$n.note.txt"

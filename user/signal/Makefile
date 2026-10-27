@@ -30,7 +30,7 @@
 #   sig_defended  each wrapper becomes an AoN block with a `ud2` ingress gate;
 #                 the linked blocks form the AoN region
 #                 [__start_aon_text,__stop_aon_text), described by a .note.aon
-#                 descriptor aon_mod reads at exec. verify_aon.sh then proves
+#                 descriptor aon_mod reads at exec. verify_aon.py then proves
 #                 the AoN region holds no stray ud2 besides the ingress gates,
 #                 and readelf checks the note survived --gc-sections.
 #
@@ -47,8 +47,7 @@
 CC      := gcc
 AONLIBC := ../../aonlibc
 NOLIBC  := $(AONLIBC)/nolibc
-VERIFY  := ../../tools/verify_ud2
-VERAON  := ../../tools/verify_aon.sh
+VERAON  := ../../tools/verify_aon.py
 
 CFLAGS  := -O0 -g -Wall -Wextra -fno-pie -fcf-protection=none \
            -ffunction-sections -fdata-sections -I$(NOLIBC) -DNOLIBC_AON
@@ -69,7 +68,7 @@ attacker.o: attacker.S
 	$(CC) $(ASFLAGS) -c $< -o $@
 
 # ---- Defended variant ---------------------------------------------------
-sig_defended: sig.o aon_syscalls.aon.o attacker.o $(VERIFY)
+sig_defended: sig.o aon_syscalls.aon.o attacker.o
 	$(CC) $(LDFLAGS) -o $@ sig.o aon_syscalls.aon.o attacker.o
 	$(VERAON) $@
 	@readelf -n $@ | grep -q 'AoN' || \
@@ -78,9 +77,6 @@ sig_defended: sig.o aon_syscalls.aon.o attacker.o $(VERIFY)
 
 aon_syscalls.aon.o: $(AONLIBC)/aon_syscalls.S
 	$(CC) $(ASFLAGS) -DAON_DEFEND -c $< -o $@
-
-$(VERIFY): $(VERIFY).c
-	$(CC) -O2 -Wall -Wextra -o $@ $<
 
 # ---- Run / clean --------------------------------------------------------
 # Baseline: both `attack-*` replace the process with /bin/echo (execve succeeds

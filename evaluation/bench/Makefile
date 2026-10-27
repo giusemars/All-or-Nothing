@@ -9,7 +9,7 @@
 #
 #   bench             baseline: plain wrappers, no AoN region
 #   bench_defended    AoN blocks + .note.aon (needs aon_mod loaded), checked
-#                     by verify_aon.sh and readelf like cat_defended
+#                     by verify_aon.py and readelf like cat_defended
 #   bench_seccomp     baseline wrappers + seccomp filter on the system call nr
 #   bench_seccomp_ip  as bench_seccomp, nr also pinned to its wrapper's
 #                     `syscall` by the instruction pointer
@@ -23,8 +23,7 @@
 CC      := gcc
 AONLIBC := ../../aonlibc
 NOLIBC  := $(AONLIBC)/nolibc
-VERIFY  := ../../tools/verify_ud2
-VERAON  := ../../tools/verify_aon.sh
+VERAON  := ../../tools/verify_aon.py
 
 CFLAGS  := -O2 -g -Wall -Wextra -fno-pie -fcf-protection=none \
            -ffunction-sections -fdata-sections -I$(NOLIBC) -DNOLIBC_AON
@@ -45,7 +44,7 @@ aon_syscalls.o: $(AONLIBC)/aon_syscalls.S
 	$(CC) $(ASFLAGS) -c $< -o $@
 
 # ---- Defended -----------------------------------------------------------
-bench_defended: bench.o aon_syscalls.aon.o $(VERIFY)
+bench_defended: bench.o aon_syscalls.aon.o
 	$(CC) $(LDFLAGS) -o $@ bench.o aon_syscalls.aon.o
 	$(VERAON) $@
 	@readelf -n $@ | grep -q 'AoN' || \
@@ -54,9 +53,6 @@ bench_defended: bench.o aon_syscalls.aon.o $(VERIFY)
 
 aon_syscalls.aon.o: $(AONLIBC)/aon_syscalls.S
 	$(CC) $(ASFLAGS) -DAON_DEFEND -c $< -o $@
-
-$(VERIFY): $(VERIFY).c
-	$(CC) -O2 -Wall -Wextra -o $@ $<
 
 # ---- seccomp ------------------------------------------------------------
 bench_seccomp: bench_seccomp.o aon_syscalls.o

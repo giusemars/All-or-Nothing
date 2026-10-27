@@ -39,7 +39,7 @@
  * an armed thread continue in user space at another instruction or with
  * another register state (dynamic condition, ensured by the signal rule).
  * The coarse "RIP in AoN region" test at the ingress gate is sound only
- * because the build-time verifier (verify_ud2) proves the AoN region has no
+ * because the build-time verifier (verify_aon.py) proves the AoN region has no
  * stray 0f 0b besides the ingress gates.
  */
 #include <asm/trapnr.h>

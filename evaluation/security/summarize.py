@@ -130,7 +130,7 @@ rows = [
 ]
 for label, f in rows:
     P("| %s | %s |" % (label, " | ".join(str(f(S[n])) for n in S)))
-P("| `verify_aon.sh` exit | — | %s | — | %s |" % (
+P("| `verify_aon.py` exit | — | %s | — | %s |" % (
     rd(static, "cat_defended.verify.txt").splitlines()[-1],
     rd(static, "sig_defended.verify.txt").splitlines()[-1]))
 P("| `.note.aon` present | — | %s | — | %s |" % tuple(
@@ -159,7 +159,7 @@ for blk in lb["cat_defended"]:
     P("| `%s` | %s | %s |" % (blk, *("linked" if lb[n][blk] else "discarded"
                                      for n in ("cat_defended", "sig_defended"))))
 P()
-P("`verify_aon.sh cat_defended`:\n")
+P("`verify_aon.py cat_defended`:\n")
 P(code(rd(static, "cat_defended.verify.txt").splitlines()))
 P()
 P("`readelf -n cat_defended` (the AoN note):\n")

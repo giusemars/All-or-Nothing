@@ -14,8 +14,7 @@ It has two parts:
   [`gadget.S`](gadget.S) and [`attacker.S`](attacker.S).
 
 The only thing it uses from outside is the shared, scenario-independent build
-tool [`../../tools/verify_ud2`](../../tools/verify_ud2.c) (via
-[`../../tools/verify_aon.sh`](../../tools/verify_aon.sh)) and, at run time, the
+tool [`../../tools/verify_aon.py`](../../tools/verify_aon.py) and, at run time, the
 `aon_mod` kernel module in [`../../kernel`](../../kernel) — neither of which is a
 `user*` dir.
 
@@ -49,8 +48,7 @@ visible); a blocked one leaves the process intact.
   gate, and the linked blocks form the AoN region
   `[__start_aon_text,__stop_aon_text)`, described by a `.note.aon` descriptor
   aon_mod reads at exec. The build then runs
-  [`../../tools/verify_aon.sh`](../../tools/verify_aon.sh) (which invokes the `ud2`
-  verifier `../../tools/verify_ud2`) to prove the AoN region contains no stray
+  [`../../tools/verify_aon.py`](../../tools/verify_aon.py) to prove the AoN region contains no stray
   `ud2` besides the declared ingress gates, and checks the note survived
   `--gc-sections`.
 
