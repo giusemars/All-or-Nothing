@@ -79,3 +79,6 @@ kernel/.cache
 
 # Python bytecode (analyze_cost.py imports batch_means.py)
 __pycache__/
+
+# clangd compile databases: machine-specific absolute paths, generated locally
+compile_commands.json

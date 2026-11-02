@@ -176,8 +176,9 @@ module, `dmesg`, reading `/proc`, etc. Do not block, defer, or hand the step
 back to the user for lack of privileges.
 
 - User `claude`, password `claude` (same for `sudo`).
-- Claude Code sessions run as user `ghi`, whose password is NOT `claude`, so a
-  plain `echo claude | sudo -S <cmd>` fails. Switch to `claude` first:
+- Claude Code sessions run as the developer's own user, whose password is NOT
+  `claude`, so a plain `echo claude | sudo -S <cmd>` fails. Switch to
+  `claude` first:
   `echo claude | su claude -c "echo claude | sudo -S -p '' <cmd>" 2>&1 | sed 's/^Password: //'`
   `su`'s `Password: ` prompt has no trailing newline, so it is glued to the
   first line of `<cmd>`'s output: strip it with the `sed` above, never with

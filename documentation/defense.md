@@ -21,6 +21,8 @@ A **protected** program can invoke a system call only by running a block from it
 - **vector A, aligned gadget**: jumping straight to the `syscall` of a block, skipping `ud2` → refused, the thread is not armed;
 - **vector B, misaligned site**: jumping to bytes `0f 05` hidden inside another instruction → refused, it is outside the AoN region.
 
+How the PoC mounts both attacks is in [`attack.md`](attack.md).
+
 A program is **defended** when it is built with the AoN blocks and an ELF note that says where they are. It is **protected** when it runs with the kernel module loaded.
 
 | When             | Part                    | Source                                                                                           | What it does                                                         |
