@@ -35,8 +35,6 @@
 
 /* The ELF loader refuses larger program header tables (load_elf_phdrs). */
 #define AON_PHDRS_MAX 4096UL
-/* PT_NOTE segments larger than this are skipped; ours is 24 bytes. */
-#define AON_NOTE_SEG_MAX 4096UL
 
 /* Value of auxv entry @type for @mm, or 0 if absent. */
 static u64 auxv_get(struct mm_struct *mm, unsigned long type) {
@@ -67,32 +65,46 @@ static int load_bias(struct mm_struct *mm, const Elf64_Phdr *ph, size_t n,
   return 0;
 }
 
-/* Walk the notes of one PT_NOTE segment: @size bytes copied into @seg from
- * runtime address @addr, entries padded to @align. Returns 0 and the region
- * on a match, -ENOENT otherwise. */
-static int scan_notes(const u8 *seg, size_t size, u64 addr, size_t align,
-                      u64 *start, u64 *end) {
+/* Copy @len bytes at user address @uaddr into @dst; 0 or -EFAULT. */
+static int peek(void *dst, u64 uaddr, size_t len) {
+  return copy_from_user(dst, (const void __user *)uaddr, len) ? -EFAULT : 0;
+}
+
+/* Walk the notes of one PT_NOTE segment of @size bytes at runtime address
+ * @addr, entries padded to @align, reading each entry straight from user
+ * memory. Returns 0 and the region on a match, -ENOENT if there is none, or
+ * -EFAULT. */
+static int scan_notes(u64 addr, size_t size, size_t align, u64 *start,
+                      u64 *end) {
   size_t off = 0;
 
   while (size - off >= sizeof(Elf64_Nhdr)) {
-    const Elf64_Nhdr *n = (const Elf64_Nhdr *)(seg + off);
-    size_t name_off = off + sizeof(*n);
-    /* size_t arithmetic: a hostile n_namesz/n_descsz cannot wrap. */
-    size_t desc_off = name_off + ALIGN((size_t)n->n_namesz, align);
-    size_t next = desc_off + ALIGN((size_t)n->n_descsz, align);
+    char name[sizeof(AON_NOTE_NAME)];
+    size_t name_off, desc_off, next;
+    Elf64_Nhdr n;
     s32 d[2];
 
-    if (next > size) /* truncated entry: stop */
+    if (peek(&n, addr + off, sizeof(n)))
+      return -EFAULT;
+    name_off = off + sizeof(n);
+    /* size_t arithmetic: a hostile n_namesz/n_descsz cannot wrap a u32,
+     * and next <= off catches a wrap of size_t itself (p_filesz is
+     * unbounded). */
+    desc_off = name_off + ALIGN((size_t)n.n_namesz, align);
+    next = desc_off + ALIGN((size_t)n.n_descsz, align);
+    if (next <= off || next > size) /* truncated entry: stop */
       break;
 
-    if (n->n_type == NT_AON_REGION &&
-        n->n_namesz == sizeof(AON_NOTE_NAME) &&
-        !memcmp(seg + name_off, AON_NOTE_NAME, sizeof(AON_NOTE_NAME)) &&
-        n->n_descsz == sizeof(d)) {
-      memcpy(d, seg + desc_off, sizeof(d));
-      *start = addr + desc_off + (s64)d[0];
-      *end = addr + desc_off + (s64)d[1];
-      return 0;
+    if (n.n_type == NT_AON_REGION && n.n_namesz == sizeof(name) &&
+        n.n_descsz == sizeof(d)) {
+      if (peek(name, addr + name_off, sizeof(name)) ||
+          peek(d, addr + desc_off, sizeof(d)))
+        return -EFAULT;
+      if (!memcmp(name, AON_NOTE_NAME, sizeof(name))) {
+        *start = addr + desc_off + (s64)d[0];
+        *end = addr + desc_off + (s64)d[1];
+        return 0;
+      }
     }
     off = next;
   }
@@ -102,7 +114,6 @@ static int scan_notes(const u8 *seg, size_t size, u64 addr, size_t align,
 int aon_elf_find_region(struct mm_struct *mm, u64 *start, u64 *end) {
   u64 phdr = auxv_get(mm, AT_PHDR), phnum = auxv_get(mm, AT_PHNUM), bias;
   Elf64_Phdr *ph;
-  u8 *seg = NULL;
   size_t i;
   int ret;
 
@@ -114,42 +125,22 @@ int aon_elf_find_region(struct mm_struct *mm, u64 *start, u64 *end) {
   ph = kmalloc_array(phnum, sizeof(*ph), GFP_KERNEL);
   if (!ph)
     return -ENOMEM;
-  if (copy_from_user(ph, (const void __user *)phdr, phnum * sizeof(*ph))) {
-    ret = -EFAULT;
-    goto out;
-  }
-
-  ret = load_bias(mm, ph, phnum, &bias);
+  ret = peek(ph, phdr, phnum * sizeof(*ph));
+  if (!ret)
+    ret = load_bias(mm, ph, phnum, &bias);
   if (ret)
     goto out;
 
-  seg = kmalloc(AON_NOTE_SEG_MAX, GFP_KERNEL);
-  if (!seg) {
-    ret = -ENOMEM;
-    goto out;
-  }
-
-  /* 2. Each PT_NOTE segment: copy it in and look for the AoN note. */
+  /* 2. Each PT_NOTE segment: walk it for the AoN note. */
   ret = -ENOENT; /* no AoN note: an ordinary program */
-  for (i = 0; i < phnum; i++) {
-    u64 addr = bias + ph[i].p_vaddr;
-
-    if (ph[i].p_type != PT_NOTE || ph[i].p_filesz > AON_NOTE_SEG_MAX)
-      continue;
-    if (copy_from_user(seg, (const void __user *)addr, ph[i].p_filesz)) {
-      ret = -EFAULT;
-      break;
-    }
-    ret = scan_notes(seg, ph[i].p_filesz, addr, ph[i].p_align == 8 ? 8 : 4,
-                     start, end);
-    if (ret != -ENOENT)
-      break;
-  }
+  for (i = 0; i < phnum && ret == -ENOENT; i++)
+    if (ph[i].p_type == PT_NOTE)
+      ret = scan_notes(bias + ph[i].p_vaddr, ph[i].p_filesz,
+                       ph[i].p_align == 8 ? 8 : 4, start, end);
   if (!ret && *start >= *end)
     ret = -EINVAL;
 
 out:
-  kfree(seg);
   kfree(ph);
   return ret;
 }
