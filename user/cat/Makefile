@@ -29,7 +29,8 @@
 #                 checks the note survived --gc-sections.
 #
 # cat.c is compiled with -DNOLIBC_AON in BOTH builds so sys.h declares
-# sys_open/read/write/close/exit extern and they link against aon_syscalls.o;
+# sys_open/read/write/close/exit/lseek extern and they link against
+# aon_syscalls.o;
 # this gives a stable egress gate symbol (sys_read_egress) for the attack in
 # the baseline too.
 #
@@ -51,7 +52,7 @@ VERAON  := ../../tools/verify_aon.py
 # Compile: -fno-pie fixes the load address (paired with -no-pie at link);
 # -fcf-protection=none keeps CET endbr64/shadow-stack markings out of cat.o;
 # -I$(NOLIBC) finds the vendored headers; -DNOLIBC_AON makes sys.h declare the
-# five sys_* wrappers extern (defined in aonlibc/aon_syscalls.S). Each
+# six sys_* wrappers extern (defined in aonlibc/aon_syscalls.S). Each
 # function/datum goes in its own section so --gc-sections can drop the unused
 # nolibc functions without changing the -O0 codegen of the survivors.
 CFLAGS  := -O0 -g -Wall -Wextra -fno-pie -fcf-protection=none \
@@ -62,8 +63,8 @@ ASFLAGS := -g
 # --gc-sections -z start-stop-gc includes only the wrappers of the required
 # system calls: each AoN block is its own `aon_text` input section, and
 # start-stop-gc stops the note's __start_/__stop_aon_text reference from
-# keeping all of them (see ../../aonlibc/aon_syscalls.S). cat requires all five
-# file I/O + exit wrappers and none of the signal ones.
+# keeping all of them (see ../../aonlibc/aon_syscalls.S). cat requires the
+# open/read/write/close/exit wrappers, not lseek, and none of the signal ones.
 LDFLAGS := -nostdlib -static -no-pie -Wl,--gc-sections -Wl,-z,start-stop-gc
 
 # ---- Baseline (attacker-wins) -------------------------------------------

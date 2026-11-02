@@ -14,16 +14,16 @@
  *   EGRESS GATE (kprobe on x64_sys_call, the common 64-bit system call
  *     dispatch): for a process that has an AoN region, every `syscall` is
  *     checked by the address of the `syscall` instruction itself -- the
- *     egress gate of the block (design property B3) -- which is the saved
+ *     egress gate of the block (requirement D3) -- which is the saved
  *     user RIP minus its 2 bytes:
  *
  *       inside the AoN region,  armed      -> disarm and allow;
  *       inside the AoN region,  not armed  -> unarmed egress gate: the thread
  *                                             never passed the ingress gate
- *                                             (vector A): refuse (property A2);
+ *                                             (vector A): refuse (requirement B2);
  *       outside the AoN region             -> not an egress gate at all
  *                                             (vector B, the vDSO, any stray
- *                                             `0f 05`): refuse (property B1).
+ *                                             `0f 05`): refuse (requirement D4).
  *
  *     Processes without an AoN region are never touched.
  *
@@ -35,9 +35,9 @@
  *     fails, and the caller has to execute the block again.
  *
  * Why observing only the gates is enough: the body contains no explicit
- * control transfer (static condition), and no implicit control transfer lets
+ * control transfer (static condition, B4), and no implicit control transfer lets
  * an armed thread continue in user space at another instruction or with
- * another register state (dynamic condition, ensured by the signal rule).
+ * another register state (dynamic condition, B5, ensured by the signal rule).
  * The coarse "RIP in AoN region" test at the ingress gate is sound only
  * because the build-time verifier (verify_aon.py) proves the AoN region has no
  * stray 0f 0b besides the ingress gates.
@@ -63,7 +63,8 @@
  *   0 = return -EACCES by skipping the function body of x64_sys_call (pop its
  *       return address into RIP, set RAX). Relies on the stack layout at the
  *       probe point; verify it is stable on your kernel before relying on it.
- * Both modes equally prevent the effect of the system call. */
+ * Both modes equally prevent the effect of the system call. The evaluation
+ * uses the default (run_security.sh records the value it ran with). */
 static int neutralize_mode = 1;
 module_param(neutralize_mode, int, 0644);
 MODULE_PARM_DESC(neutralize_mode, "1=block via -ENOSYS nr override (default, "
@@ -120,11 +121,11 @@ static int aon_syscall_pre(struct kprobe *p, struct pt_regs *regs) {
   case AON_INSIDE:
     if (aon_armed_test_and_clear(current->pid))
       return 0; /* egress gate reached through its ingress gate: allow */
-    why = "unarmed egress gate"; /* vector A (A2) */
+    why = "unarmed egress gate"; /* vector A (B2) */
     break;
   case AON_OUTSIDE:
   default:
-    why = "outside the AoN region"; /* vector B, vDSO, stray bytes (B1) */
+    why = "outside the AoN region"; /* vector B, vDSO, stray bytes (D4) */
     break;
   }
 
@@ -141,7 +142,11 @@ static int aon_syscall_pre(struct kprobe *p, struct pt_regs *regs) {
     return 1; /* we changed RIP; skip the original */
   }
 
-  /* Default: rewrite nr (2nd arg, RSI) so the dispatch returns -ENOSYS. */
+  /* Default: the probe sits at the entry of
+   *   long x64_sys_call(const struct pt_regs *regs, unsigned int nr),
+   * so RSI still holds nr, the dispatcher's own copy of the number (the user
+   * rax is already saved in regs->orig_ax). An out-of-range nr falls through
+   * to sys_ni_syscall, which returns -ENOSYS, and no system call runs. */
   regs->si = 0xffffffffUL;
   return 0;
 }

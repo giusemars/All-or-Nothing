@@ -13,7 +13,9 @@ after.
   `tools/include/nolibc`, with one PoC patch: under `-DNOLIBC_AON`, `sys.h`
   declares `sys_open`, `sys_read`, `sys_write`, `sys_close`, `sys_lseek` and
   `sys_exit` **extern** instead of defining them inline, so they resolve to the wrappers
-  in `aon_syscalls.S`. Without `-DNOLIBC_AON` it is ordinary nolibc.
+  in `aon_syscalls.S`. Without `-DNOLIBC_AON` it is ordinary nolibc. Each of
+  the six patched sites is an `#ifdef NOLIBC_AON` block commented
+  `PoC patch:`, so `grep -n 'PoC patch' nolibc/sys.h` lists them all.
 - [`aon_syscalls.S`](aon_syscalls.S) — the hardened named wrappers, in two
   groups:
   - **file I/O + exit**: `sys_open`, `sys_read`, `sys_close`, `sys_write`,
@@ -73,7 +75,7 @@ meaningful.
 
 With `aon_mod` loaded, a defended program may invoke system calls **only**
 through these wrappers: the module refuses any `syscall` outside the AoN region
-(design property B1). So the library must cover every system call the program
+(requirement D4). So the library must cover every system call the program
 invokes, including the ones nolibc's startup invokes (`exit`). nolibc features
 that issue a `syscall` of their own (the generic `syscall()` macro, the stack
 protector, signal restorers) would be refused at run time, and so would a call

@@ -158,8 +158,8 @@ directory is also the template for new scenarios.
 | Operand | Baseline `./cat` | Defended `./cat_defended` + `aon_mod` |
 | --- | --- | --- |
 | any file name | prints the file | prints the file (same output) |
-| `aligned` (vector A: jump onto `sys_read_egress`, the read wrapper's egress gate) | `execve` runs, `/bin/echo` replaces the process | refused: unarmed egress gate (A2), exit 3 |
-| `misaligned` (vector B: jump onto the misaligned `syscall` in `gadget.S`) | `execve` runs | refused: `syscall` outside the AoN region (B1), exit 3 |
+| `aligned` (vector A: jump onto `sys_read_egress`, the read wrapper's egress gate) | `execve` runs, `/bin/echo` replaces the process | refused: unarmed egress gate (B2), exit 3 |
+| `misaligned` (vector B: jump onto the misaligned `syscall` in `gadget.S`) | `execve` runs | refused: `syscall` outside the AoN region (D4), exit 3 |
 
 ### `user/signal/` — the signal rule
 

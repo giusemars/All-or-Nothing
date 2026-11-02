@@ -26,7 +26,16 @@ offer the following.
 | kprobe-able symbols `x64_sys_call`, `x64_setup_rt_frame`, `finalize_exec`, `wake_up_new_task`, `exit_mmap`, `do_exit` | the egress gate check, the signal rule, and exec / fork / exit tracking. `x64_sys_call` exists since Linux 6.9; on older kernels the module does not load |
 | headers of the running kernel (Debian: `linux-headers-$(uname -r)`), i.e. `/lib/modules/$(uname -r)/build` | `kernel/Makefile` builds against them |
 
-Developed and tested on `6.12.73+deb13-amd64` only.
+Developed and tested on `6.12.73+deb13-amd64` only. To check a kernel before
+building, every symbol in the table must be listed by:
+
+```bash
+sudo grep -wE 'x64_sys_call|x64_setup_rt_frame|finalize_exec|wake_up_new_task|exit_mmap|do_exit' /proc/kallsyms
+```
+
+A missing one makes `insmod` fail, with an `aon: ... kprobe(s) failed` line in
+the kernel log. A listed one can still be refused if it is blacklisted for kprobes
+(`/sys/kernel/debug/kprobes/blacklist`).
 
 ## Build toolchain
 

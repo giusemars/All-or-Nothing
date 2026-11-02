@@ -141,7 +141,7 @@ P("The misaligned `0f 05` in `cat` is vector B's site (immediate of "
   "`movabs` in `benign_compute`). The one in `sig` was not planted: it is the "
   "immediate of `cmp $0x50f,%ax`, the compiler's encoding of `SYSCALL_BYTES` "
   "in `on_trap` -- an unintended misaligned site produced by ordinary C code. "
-  "Both lie outside the AoN region, so the module refuses them (B1).\n")
+  "Both lie outside the AoN region, so the module refuses them (D4).\n")
 for n in ("cat_defended", "sig_defended"):
     d = S[n]
     P("**`%s`: aligned `syscall` → AoN block (C4)**\n" % n)

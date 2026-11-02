@@ -23,9 +23,10 @@ onto its `syscall` (unarmed egress gate), and the kernel refuses any `syscall`
 a protected process issues outside the AoN region, so a misaligned site is
 refused too.
 
-The design properties (A1–A3, B1–B3, C1–C3, D1–D3, E1) and the three
-components (hardened library, kernel module, build-time verifier) are defined
-in the Notion design document (see below) — the source of truth for the design.
+The requirements use the thesis labels: B1–B5 for the AoN mechanism, D1–D4
+for the system call hardening, which gives properties P1–P4 and level L1
+(table in `documentation/defense.md`, "Requirements"). The older Notion
+labels (A1–A3, …, E1) are retired: never use them.
 
 ## Terminology (thesis glossary — use it in code, comments and docs)
 
@@ -81,7 +82,7 @@ in the Notion design document (see below) — the source of truth for the design
 - **Vector B — misaligned site** (operand `misaligned`): jump to a `syscall`
   formed by **misaligned** bytes inside an ordinary routine. *No ingress gate
   guards it (it is not an AoN block), but the module refuses every `syscall` of
-  a protected process outside the AoN region (property B1), so it is blocked
+  a protected process outside the AoN region (requirement D4), so it is blocked
   too.*
 - Attacker capabilities are **simulated** via planted `asm` blocks (arbitrary
   register state + control-flow redirection) and address leaks, instead of a
@@ -91,8 +92,8 @@ in the Notion design document (see below) — the source of truth for the design
 Expected end state with the defense (defended build + `aon_mod` loaded):
 both attacks fail. `./cat_defended aligned` (vector A) — the reused `syscall`
 is inside the AoN region but the thread never passed the ingress gate
-(unarmed egress gate, property A2). `./cat_defended misaligned` (vector B) —
-the `syscall` is outside the AoN region (property B1). Either way the module
+(unarmed egress gate, requirement B2). `./cat_defended misaligned` (vector B) —
+the `syscall` is outside the AoN region (requirement D4). Either way the module
 refuses the system call (`-ENOSYS`), no `execve` runs, and the program exits 3.
 The baseline `./cat` (no AoN note) is not policed, so both attacks succeed
 there even with the module loaded. The remaining boundary is reuse of a whole

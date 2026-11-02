@@ -15,8 +15,8 @@ binary. There are two kinds of such instruction, and so two vectors:
 
 | Vector | Target | Kind of site | Refused on the defended build because |
 | --- | --- | --- | --- |
-| **A** | the `syscall` of the read wrapper (`sys_read_egress`) | aligned gadget: an intended block entered in the middle | the thread never passed the ingress gate: **unarmed egress gate** (A2) |
-| **B** | a `0f 05` hidden inside an instruction of `benign_compute` | misaligned site: a `syscall` nobody wrote | the `syscall` is **outside the AoN region** (B1) |
+| **A** | the `syscall` of the read wrapper (`sys_read_egress`) | aligned gadget: an intended block entered in the middle | the thread never passed the ingress gate: **unarmed egress gate** (B2) |
+| **B** | a `0f 05` hidden inside an instruction of `benign_compute` | misaligned site: a `syscall` nobody wrote | the `syscall` is **outside the AoN region** (D4) |
 
 The attacker's program here is `/bin/echo`, which prints
 `[attacker] execve() hijack succeeded -- process image replaced`. That makes a

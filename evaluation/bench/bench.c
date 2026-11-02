@@ -25,7 +25,7 @@
  *                     number (allow only the required system calls)
  *   bench_seccomp_ip  as bench_seccomp, and the filter also pins each allowed
  *                     number to the instruction pointer after the `syscall`
- *                     of its own wrapper (the seccomp analogue of B1)
+ *                     of its own wrapper (the seccomp analogue of D4)
  *
  * The filter is installed before any measurement, so only its per-call cost
  * is measured, not its installation.

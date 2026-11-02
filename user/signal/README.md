@@ -19,6 +19,32 @@ code (`attack-unarmed`), or the trap on the block's egress gate while armed
 (`correctness` and `attack-armed`); and once there, nothing (`correctness`) or
 the hijack (`attack-*`).
 
+### Why single-stepping
+
+The thread is armed only between the ingress gate and the egress gate, a
+window of one instruction (`movl $nr,%eax`). A real asynchronous signal, such
+as a timer, would land there only by chance. Single-stepping makes it happen
+on every run:
+
+1. `set_tf()` sets `EFLAGS.TF` just before the `write`. From then on the CPU
+   raises a debug exception (#DB) after **every** user instruction, and the
+   kernel delivers each one as `SIGTRAP` to `on_trap`.
+2. The `ud2` ingress gate is handled by `aon_mod` (arm, skip, no signal). The
+   next instruction, the body's `movl`, then traps with RIP on the
+   `syscall`, while the thread is armed. Delivering that `SIGTRAP` is where the
+   signal rule disarms the thread.
+3. `on_trap` recognizes the egress gate by its opcode: RIP within 16 bytes of
+   `__aon_write` and the bytes at RIP are `0f 05` (`SYSCALL_BYTES`). It
+   matches the opcode instead of a fixed offset because the baseline has no
+   2-byte `ud2`, so the `syscall` sits at a different offset in each build.
+4. To stop stepping, the handler clears TF in the **saved** context
+   (`*uc_eflags(uc) &= ~T_TF`), so `rt_sigreturn` resumes the thread without
+   it.
+
+`UC_RIP` (168) and `UC_EFL` (176) are hard-coded because nolibc 6.12 has no
+`ucontext_t`. They are the x86_64 offsets of `uc_mcontext.gregs[REG_RIP]` and
+`gregs[REG_EFL]` in the frame the kernel writes.
+
 Self-contained like the other scenarios — every source it needs is here, plus
 the shared library ([`../../aonlibc`](../../aonlibc)) and the build tool
 ([`../../tools/verify_aon.py`](../../tools/verify_aon.py)). The only local attacker

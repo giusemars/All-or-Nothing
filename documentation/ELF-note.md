@@ -16,7 +16,6 @@ This guide explains:
 - the parts of ELF involved (sections 1–2)
 - the note (3) and how it is produced (4)
 - how the kernel module finds the region at runtime (5)
-- the commands to inspect all of this in a real binary (6)
 
 ## 1. What an ELF is
 
@@ -24,7 +23,7 @@ ELF (*Executable and Linkable Format*) is the file format Linux uses for object 
 
 ### Layout
 
-A ELF file has four parts:
+An ELF file has four parts:
 
 | #   | Part                     | What it holds                                                                                           | Starts at              | Size                 |
 | --- | ------------------------ | ------------------------------------------------------------------------------------------------------- | ---------------------- | -------------------- |
@@ -82,18 +81,18 @@ An executable needs library code (for example the C library) as well as its own.
 - **Static.** At link time, the linker copies the library code the program uses into the executable. The file is self-contained: the kernel maps it and jumps straight to its entry point.
 - **Dynamic.** The library code stays in separate shared libraries (`.so` files). The executable names a *dynamic loader* (`ld-linux-x86-64.so.2`) in a `PT_INTERP` segment. At startup, the dynamic loader maps the shared libraries and connects the program's calls to them. The program's code and the libraries' code then live in different files and memory ranges.
 
-**This project uses static executables.** Each scenario is linked with `-nostdlib -static` against a minimal  C library and the AoN wrappers, so every system call the program makes goes through an AoN block inside the executable itself. This is what lets one note, in the executable, describe the whole AoN region.
+**This project uses static executables.** Each scenario is linked with `-nostdlib -static` against a minimal C library and the AoN wrappers, so every system call the program makes goes through an AoN block inside the executable itself. This is what lets one note, in the executable, describe the whole AoN region.
 A dynamic program would not fit: the dynamic loader and the shared C library issue system calls from their own code, outside the executable's AoN region, and the module would refuse them.
 
 ### What the loader does
 
 `execve` replaces the process with a new program. For an ELF file, the kernel's ELF loader (`load_elf_binary`) does the work, reading only the ELF header and the program headers (section headers are never consulted):
 
-1. **Picks the load bias.** The binary can indicate that the code is position indipendent, and so it can be placed at random base address. If so a `bias` is randomly picked, otherwise the `bias` is 0.
+1. **Picks the load bias.** The binary can indicate that the code is position independent, so it can be placed at a random base address. If so a `bias` is randomly picked, otherwise the `bias` is 0.
 2. **Maps each `PT_LOAD` segment** at `p_vaddr + bias`, (`p_vaddr` is a field of the program header, `bias` is computed in the step above) with the permissions in `p_flags`.
 3. **Records the new image** and **builds the new stack**: updates the process's memory descriptor (`mm`), and passes on the stack the arguments, the environment and the **auxv** (auxiliary vector).
-- The **auxv** is a list of key/value pairs that describes the new image to the program. Among them: `AT_PHDR`, the runtime address of the program header table; `AT_PHNUM`, its number of entries; `AT_PHENT`, the size of one entry; `AT_ENTRY`, the entry point. The kernel keeps a copy of the auxv in `mm->saved_auxv`.
-1. **Starts the program.** For a static binary, it starts at the entry point, `e_entry + bias`.
+   - The **auxv** is a list of key/value pairs that describes the new image to the program. Among them: `AT_PHDR`, the runtime address of the program header table; `AT_PHNUM`, its number of entries; `AT_PHENT`, the size of one entry; `AT_ENTRY`, the entry point. The kernel keeps a copy of the auxv in `mm->saved_auxv`.
+4. **Starts the program.** For a static binary, it starts at the entry point, `e_entry + bias`.
 
 
 ## 2. The ELF pieces AoN relies on
@@ -142,7 +141,7 @@ offset  field     value
 0x14    desc[1]   offset of __stop_aon_text  relative to here
 ```
 
-The descriptor holds two signed 32-bit offsets, each counted from the descriptor's own address. So the real bounds of the AoN regions are:
+The descriptor holds two signed 32-bit offsets, each counted from the descriptor's own address. So the real bounds of the AoN region are:
 
 ```
 start of the AoN region = __start_aon_text = &desc + desc[0]
@@ -151,7 +150,7 @@ end   of the AoN region = __stop_aon_text  = &desc + desc[1]
 
 Because the offsets are relative to the note, they are correct under any load bias.
 
-## 3. How the note is produced
+## 4. How the note is produced
 
 The note comes out of the normal build of a defended program (using the `-DAON_DEFEND` flag), which has two steps:
 
@@ -226,7 +225,7 @@ The two parts below follow what ends up in the binary: first the **region** that
       .long __stop_aon_text  - 1b
    ```
 
-## 4. How the kernel module reads it
+## 5. How the kernel module reads it
 
 The module looks for the region once per `execve`, in `aon_elf_find_region()` ([`kernel/aon_elf.c`](../kernel/aon_elf.c)). It reads only the new program's memory, never the file. The steps:
 
@@ -264,7 +263,7 @@ The module looks for the region once per `execve`, in `aon_elf_find_region()` ([
 
 8. **Free the copy and return.** The program header copy is freed (`kfree`): the module keeps nothing but `[start, end)`.
 
-9.  **Act on the result** (in `aon_exec_scan()`):
+9. **Act on the result** (in `aon_exec_scan()`):
    - success: `aon_region_add(mm, start, end)` records the region for this address space, and the module logs `protecting [start, end)`;
    - `-ENOENT` or `-ENOEXEC`: an ordinary program, which is not policed;
    - any other error: a warning is logged and no region is recorded. This fails closed: no thread is ever armed, so the #UD of the program's first `ud2` is delivered as SIGILL (illegal instruction) and kills it.

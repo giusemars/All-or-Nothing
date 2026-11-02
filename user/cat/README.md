@@ -32,8 +32,8 @@ to invoke it is by **reusing** a `syscall` instruction:
 | mode         | gadget                                        | vector | blocked in the defended build by |
 |--------------|-----------------------------------------------|--------|------------|
 | `<filename>` | — (runs the real cat)                         | —      | —          |
-| `aligned`    | aligned gadget: the egress gate of the read wrapper (`sys_read_egress`), with `%rax=59` | **A**  | A2: unarmed egress gate (the thread never passed the ingress gate) |
-| `misaligned` | misaligned site at `benign_compute+2`, with `%rax=59` | **B**  | B1: `syscall` outside the AoN region |
+| `aligned`    | aligned gadget: the egress gate of the read wrapper (`sys_read_egress`), with `%rax=59` | **A**  | B2: unarmed egress gate (the thread never passed the ingress gate) |
+| `misaligned` | misaligned site at `benign_compute+2`, with `%rax=59` | **B**  | D4: `syscall` outside the AoN region |
 
 A successful hijack replaces the process image with `/bin/echo` (harmless and
 visible); a blocked one leaves the process intact.

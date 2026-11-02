@@ -15,8 +15,8 @@
  * This is a MISALIGNED site: a `syscall` the programmer never wrote, present
  * only as a byte-level accident. It is not an AoN block, so no ingress gate
  * guards it. In the defended build it is blocked anyway: aon_mod refuses
- * every `syscall` of a protected process outside the AoN region (design
- * property B1). In the baseline it works.
+ * every `syscall` of a protected process outside the AoN region
+ * (requirement D4). In the baseline it works.
  * ------------------------------------------------------------------------ */
 	.globl	benign_compute
 	.type	benign_compute, @function

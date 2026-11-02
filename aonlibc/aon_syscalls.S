@@ -60,7 +60,7 @@
  * functions in sys.h (read(), write(), ...) apply __sysret(), so errno
  * translation stays OUTSIDE the AoN blocks.
  *
- * Anatomy of the AoN block (defended), design property B3:
+ * Anatomy of the AoN block (defended), requirement D3:
  *      ud2                 ingress gate (0f 0b): aon_mod arms the thread
  *      movl $nr, %eax      body: pins the system call number
  *      syscall             egress gate: the kernel entry of the protected
@@ -77,7 +77,7 @@
  *
  * With aon_mod loaded, a protected process may invoke a system call ONLY from
  * one of these egress gates, after passing its ingress gate: a `syscall`
- * anywhere else in the address space is refused (design property B1).
+ * anywhere else in the address space is refused (requirement D4).
  *
  * tools/verify_aon.py discovers the ingress gates from the __aon_* symbols
  * (only the linked ones survive) and the bounds from __start_/__stop_aon_text;

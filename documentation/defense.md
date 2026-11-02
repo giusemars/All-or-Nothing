@@ -32,6 +32,26 @@ A program is **defended** when it is built with the AoN blocks and an ELF note t
 | Startup/teardown | **kernel module**       | [`kernel/aon_lifecycle.c`](../kernel/aon_lifecycle.c), [`kernel/aon_elf.c`](../kernel/aon_elf.c) | reads the note, saves the region, copies it at fork, drops it at exit |
 | Run              | **kernel module**       | [`kernel/aon_enforce.c`](../kernel/aon_enforce.c), [`kernel/aon_state.c`](../kernel/aon_state.c) | arms at the ingress gate, checks and disarms at the egress gate      |
 
+## Requirements
+
+Code and docs cite the requirements of the thesis by label, for example `(B2)` next to the unarmed-egress-gate check. **B1–B5** are what the AoN mechanism needs, with no reference to system calls. **D1–D4** are what system call hardening built on it needs.
+
+| Req. | The thesis requires that…                                                                                          | Realized in the PoC by                                                                                      |
+| ---- | ------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------- |
+| B1   | the kernel intercepts both gates of every AoN block, and accepts a gate only at the address of a gate of a block   | `ud2` caught through #UD, `syscall` caught at `x64_sys_call`; gates accepted only inside the AoN region, which the verifier checks |
+| B2   | the kernel detects every **unintended execution** of a block (egress gate without its ingress gate and body), before the egress gate's operation runs | per-thread armed state, set at the ingress gate, consumed at the egress gate (**vector A**)                 |
+| B3   | the kernel gets the information that identifies the blocks before the program's first instruction, and it cannot be changed afterward | one region, ELF note read at exec; region and armed state only in kernel memory, no interface to change them |
+| B4   | the body of every block has no explicit control transfer (**static condition**)                                    | blocks written in assembly, body = one `movl`                                                               |
+| B5   | no implicit control transfer lets an armed thread continue elsewhere or with other registers (**dynamic condition**) | the signal rule: disarm before a handler, never re-arm at `rt_sigreturn`                                   |
+| D1   | the library executes `syscall` only in bijective wrappers, each of which can be included individually              | the `sys_*` functions in `aon_syscalls.S`, one section per wrapper                                          |
+| D2   | the build includes in the binary only the required wrappers                                                        | static linking with `--gc-sections -z start-stop-gc`                                                        |
+| D3   | every wrapper is an AoN block: ingress gate before the body that pins the number, egress gate = its `syscall`       | `ud2 ; movl $nr,%eax ; syscall` for every wrapper                                                           |
+| D4   | the kernel detects every system call invocation that does not come from an egress gate                             | every 64-bit `syscall` outside the AoN region refused (**vector B**)                                        |
+
+D1–D4 give the thesis' four properties: **P1** every wrapper is bijective and individually includable, **P2** every wrapper in the binary is required, **P3** every wrapper is hardened, **P4** every invocation outside a wrapper's `syscall` is detected. Together, P2–P4 give **L1**: the process can invoke only its required system calls.
+
+Labels that are *not* requirements: the evaluation rows **C1–C5**, **S1–S4** (security) and **P0–P3** (cost) in [`evaluation.md`](evaluation.md) are just row IDs. In particular, the cost rows P0–P3 are unrelated to the properties P1–P4.
+
 ## Build time
 
 **Goal:** every system call goes through an AoN block, only the needed blocks are included, they are all in one region described by an ELF note, and the region has no `ud2` except the ingress gates.

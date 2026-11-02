@@ -12,12 +12,17 @@ The evaluation asks three questions about the defense in
 
 Every row compares a **baseline** build (no `.note.aon`, never policed) with
 a **defended** build of the same source. Both scripts need root and write to
-`evaluation/results/`.
+`evaluation/results/`. No results are included in the repository, so
+`RESULTS.md` and `COST.md` exist only after the scripts have run.
 
 | Block | Rows | Command | Summary |
 | --- | --- | --- | --- |
 | security | C1–C5, S1–S4 | `evaluation/security/run_security.sh` | `RESULTS.md` |
 | cost | P0–P3 | `evaluation/cost/run_cost.sh` | `COST.md` |
+
+The row IDs are only labels for this evaluation. They are not the thesis
+requirements (B1–B5, D1–D4) or properties (P1–P4) listed in
+[`defense.md`](defense.md#requirements).
 
 ## Security block
 
@@ -81,7 +86,7 @@ wrapper, built four ways:
 | `bench` | none |
 | `bench_defended` | `aon_mod` (ingress + egress gate on every call) |
 | `bench_seccomp` | seccomp filter on the system call number |
-| `bench_seccomp_ip` | the same, plus each number pinned to its wrapper's `syscall` (seccomp's analogue of B1) |
+| `bench_seccomp_ip` | the same, plus each number pinned to its wrapper's `syscall` (seccomp's analogue of D4) |
 
 The default call is `write(-1, buf, 0)`, the cheapest real system call, so
 the AoN overhead is at its largest relative share (the worst case). Each
