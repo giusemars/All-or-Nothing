@@ -26,17 +26,17 @@ ELF (*Executable and Linkable Format*) is the file format Linux uses for object 
 
 A ELF file has four parts:
 
-| # | Part                     | What it holds                                                                                           | Starts at              | Size                 |
-|---|--------------------------|---------------------------------------------------------------------------------------------------------|------------------------|----------------------|
-| 1 | **ELF header**           | identity of the file and where the two tables are (see below)                                           | always `0`             | 64 bytes             |
-| 2 | **Section header table** | one entry, called a **section header**, per **section**: a named piece the linker works with            | `e_shoff`              | `e_shnum` × 64 bytes |
-| 3 | **Program header table** | one entry, called a **program header**, per **segment**: a range of the file the loader uses at runtime | `e_phoff`              | `e_phnum` × 56 bytes |
-| 4 | **Contents**             | the bytes the two tables describe: code, data, notes, symbols, strings                                  | between the two tables | most of the file     |
+| #   | Part                     | What it holds                                                                                           | Starts at              | Size                 |
+| --- | ------------------------ | ------------------------------------------------------------------------------------------------------- | ---------------------- | -------------------- |
+| 1   | **ELF header**           | identity of the file and where the two tables are (see below)                                           | always `0`             | 64 bytes             |
+| 2   | **Section header table** | one entry, called a **section header**, per **section**: a named piece the linker works with            | `e_shoff`              | `e_shnum` × 64 bytes |
+| 3   | **Program header table** | one entry, called a **program header**, per **segment**: a range of the file the loader uses at runtime | `e_phoff`              | `e_phnum` × 56 bytes |
+| 4   | **Contents**             | the bytes the two tables describe: code, data, notes, symbols, strings                                  | between the two tables | most of the file     |
 
 The ELF header fields that matter here:
 
 | Field                | Meaning                                                 |
-|----------------------|---------------------------------------------------------|
+| -------------------- | ------------------------------------------------------- |
 | `e_entry`            | address of the first instruction run                    |
 | `e_phoff`, `e_phnum` | where the program header table is, and how many entries |
 | `e_shoff`, `e_shnum` | where the section header table is, and how many entries |
@@ -53,7 +53,7 @@ Sections and segments are two ways of dividing the same contents, made for two d
 A segment covers whole sections, with compatible permissions, placed next to each other. For example, `.text` and `aon_text` are in the same executable segment. A section that isn't needed at runtime, such as `.symtab`, is in no segment at all. So every byte the program uses at runtime is in both a section and a segment, while some bytes are only in a section.
 
 |                   | Section: *linking view*                                                                                    | Segment: *execution view*                                                                  |
-|-------------------|------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------|
+| ----------------- | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
 | Described by      | one section header each                                                                                    | one program header each                                                                    |
 | Read by           | the linker, debuggers, `readelf`/`objdump`                                                                 | the kernel's ELF loader                                                                    |
 | What it is        | a named piece with one purpose: `.text` (code), `.data`, `.symtab` (the symbol table: names for addresses) | a byte range with one set of permissions (`R`, `R E`, `RW`), holding zero or more sections |
@@ -101,7 +101,7 @@ A dynamic program would not fit: the dynamic loader and the shared C library iss
 Of the pieces in section 1, the kernel module uses these:
 
 | Piece                                  | View      | What it gives the kernel module                                                          |
-|----------------------------------------|-----------|------------------------------------------------------------------------------------------|
+| -------------------------------------- | --------- | ---------------------------------------------------------------------------------------- |
 | `PT_LOAD` segments                     | execution | the lowest executable `p_vaddr`, from which the load bias is computed                    |
 | `PT_NOTE` segments                     | execution | the allocated notes, `.note.aon` among them, so it is in memory at runtime               |
 | auxv `AT_PHDR`, `AT_PHNUM`, `AT_PHENT` | runtime   | runtime address, count and entry size of the program headers, read from `mm->saved_auxv` |
@@ -228,86 +228,45 @@ The two parts below follow what ends up in the binary: first the **region** that
 
 ## 4. How the kernel module reads it
 
-[`kernel/aon_elf.c`](../kernel/aon_elf.c), `aon_elf_find_region()`.
+The module looks for the region once per `execve`, in `aon_elf_find_region()` ([`kernel/aon_elf.c`](../kernel/aon_elf.c)). It reads only the new program's memory, never the file. The steps:
 
-**When.** The module hooks `finalize_exec`, the last step of `execve`, with a *kprobe*: a callback the kernel runs when a given kernel function is entered. That callback can't sleep, so it only queues a *task_work*: a callback the kernel runs in the process itself, just before it returns to user space. There, `aon_exec_scan()` (in `aon_lifecycle.c`) calls `aon_elf_find_region()`. At that point the new address space is complete, the program hasn't run its first instruction yet, and the code may sleep and load memory pages.
+1. **Wait until the new program is in memory.** The module hooks `finalize_exec`, the last step of `execve`, with a *kprobe*. A kprobe callback cannot sleep, and reading user memory may sleep, so it queues a *task_work*: a callback the kernel runs in the process itself, just before it returns to user space. That callback, `aon_exec_scan()` ([`kernel/aon_lifecycle.c`](../kernel/aon_lifecycle.c)), calls `aon_elf_find_region()`. At this point the new address space is complete and the program has not run its first instruction yet.
 
-**What it reads.** Only the new address space, never the file: no reopening and no race with the file. A running executable can't be written to (`ETXTBSY`), so the mapped bytes are the file's bytes.
+2. **Find the program headers.** The ELF loader already mapped the program header table and recorded it in the auxv (section 1). The module reads two entries from `mm->saved_auxv`:
+   - `AT_PHDR`: the runtime address of the table;
+   - `AT_PHNUM`: its number of entries.
 
-| #  | Step                                                                                                                   | Why                                                                                                                                                                                                         | Produces                                                          |
-|----|------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------|
-| 1  | `auxv_get(AT_PHDR)`, `auxv_get(AT_PHNUM)`                                                                              | the loader already recorded where the program headers are mapped                                                                                                                                            | `phdr`, `phnum`                                                   |
-| 2  | check `AT_PHENT == 56` and `phnum ≤ 4096/56`                                                                           | must be ELF64 headers; the size must be bounded (the loader has the same 4096-byte limit)                                                                                                                   | else `-ENOEXEC`: an ordinary program                              |
-| 3  | `kmalloc_array` + `peek()` (`copy_from_user`)                                                                          | the headers are used twice; user memory needs checked access                                                                                                                                                | kernel copy `ph[]`, or `-ENOMEM` / `-EFAULT`                      |
-| 4  | `load_bias()`                                                                                                          | `p_vaddr` is a link-time address. The kernel records where the code starts in `mm->start_code` = lowest `p_vaddr` of a `PF_X` `PT_LOAD` + bias. This works even without `PT_PHDR`, which a static-pie lacks | `bias`, or `-ENOEXEC`                                             |
-| 5  | for each `PT_NOTE`: `scan_notes(bias + p_vaddr, p_filesz)`                                                             | the note can be in any note segment, next to other owners' notes                                                                                                                                            | first result other than `-ENOENT` wins                            |
-| 5a | `peek()` each 12-byte note header; compute `desc_off` and `next`                                                       | step over notes without copying the whole segment                                                                                                                                                           | stop on truncation (`next > size`) or wrap-around (`next <= off`) |
-| 5b | filter `n_type == 1 && namesz == 4 && descsz == 8`, then `peek()` the name and descriptor and `memcmp` against `"AoN"` | a type is only meaningful with its owner; other notes cost one header read                                                                                                                                  | `start = addr + desc_off + d[0]`, `end = … + d[1]`                |
-| 6  | check `start < end`                                                                                                    | an empty or inverted range is malformed                                                                                                                                                                     | else `-EINVAL`                                                    |
-| 7  | `kfree(ph)`                                                                                                            | nothing is kept                                                                                                                                                                                             | `[start, end)` returned to the caller                             |
+3. **Check that they make sense.** `AT_PHENT` must be 56, the size of an ELF64 program header, and the table must fit in 4096 bytes (at most 73 entries), the same limit the loader applies. Otherwise the result is `-ENOEXEC`, and the program is treated as an ordinary one.
 
-**What happens next** (`aon_exec_scan()`):
+4. **Copy the program headers into the kernel.** The table is in user memory, which kernel code must not read directly. The module allocates a kernel buffer (`kmalloc_array`) and copies the table into it with `peek()`, a wrapper around `copy_from_user`.
+   - That function checks that the address belongs to the program, loads the page from disk if needed (this is the part that may sleep), and fails with `-EFAULT` instead of crashing if the address is not mapped. The table is copied once, because the next two steps both read it.
 
-- `0`: `aon_region_add(mm, start, end)` records the region, and the module logs `protecting [start, end)`.
-- `-ENOENT` / `-ENOEXEC`: an ordinary program, which is not policed.
-- Any other error: a warning is logged and no region is recorded. This fails closed: no thread is ever armed, so the #UD of the binary's first `ud2` is delivered as SIGILL (illegal instruction) and kills it.
+5. **Compute the load bias.**
+   - **Why it is needed.** The next step must read the `PT_NOTE` segments in memory. A program header gives only `p_vaddr`, the address the *linker* chose. The loader placed every segment at `p_vaddr + bias` (section 1), so the module needs `bias` to turn `p_vaddr` into the address where the note really is.
+   - **Why it must be recomputed.** The loader does not store the bias anywhere the module can read. The usual trick, used by user-space loaders, is `bias = AT_PHDR - p_vaddr of the PT_PHDR segment` (the same table, at runtime and at link time). But a static executable may have no `PT_PHDR` segment at all.
+   - **How it is recomputed.** The loader, while mapping the segments, remembers the lowest `p_vaddr` among the executable `PT_LOAD` segments, then adds the bias, and at the end saves the result as `mm->start_code` (the start of the program's code). So the module can scan its copy of the program headers and find the same lowest `p_vaddr` and subtracts it:
 
-A forked child inherits the region, because its address space is a copy of its parent's. The region is dropped when the address space is destroyed (`exit_mmap`).
+     ```
+     mm->start_code = lowest executable p_vaddr + bias             (stored by the loader)
+     bias           = mm->start_code - lowest executable p_vaddr   (computed by the module)
+     ```
 
-## 6. Inspecting a real binary
+   - **Example.** In `cat_defended` the only executable `PT_LOAD` has `p_vaddr = 0x401000`. It is not position independent, so the loader uses bias 0, `mm->start_code` is `0x401000`, and the module computes `bias = 0x401000 - 0x401000 = 0`. If the same program were a static-pie linked at `p_vaddr = 0x1000` and the loader picked bias `0x7f0000000000`, `mm->start_code` would be `0x7f0000001000`, and the subtraction would give back `0x7f0000000000`.
 
-Run from the repository root on x86_64 Linux, with `binutils` (`readelf`, `objdump`, `nm`, `strip`) and the headers of the running kernel installed.
+6. **Walk every note in every `PT_NOTE` segment.** A note segment starts at runtime address `bias + p_vaddr` and is `p_filesz` bytes long, and the AoN note may sit in any of them, next to other owners' notes. For each note, in order:
+   1. Copy its 12-byte header and compute where its name, its descriptor and the next note start (each part is padded to the segment's alignment, 4 or 8 bytes). If the note would end past the segment, or the offsets wrap around, stop walking this segment.
+   2. Skip the note unless `n_type == 1`, `n_namesz == 4` and `n_descsz == 8`. Notes of other owners cost one header read.
+   3. Copy the name and the descriptor. If the name is `"AoN"`, compute the bounds as in section 3: `start = &desc + desc[0]`, `end = &desc + desc[1]`.
 
-The commands use `user/cat/cat_defended`, the defended build of the `cat` scenario. Building it already checks that the note is present:
+   The first AoN note found wins. If no segment has one, the result is `-ENOENT`: an ordinary program.
 
-```bash
-make -C user/cat cat_defended
-cd user/cat
-```
+7. **Check the range.** `start` must be lower than `end`; an empty or inverted range is malformed, and the result is `-EINVAL`.
 
-**What an ELF is** (section 1): file type and ELF header.
+8. **Free the copy and return.** The program header copy is freed (`kfree`): the module keeps nothing but `[start, end)`.
 
-```bash
-file cat_defended
-readelf -hW cat_defended
-```
+9.  **Act on the result** (in `aon_exec_scan()`):
+   - success: `aon_region_add(mm, start, end)` records the region for this address space, and the module logs `protecting [start, end)`;
+   - `-ENOENT` or `-ENOEXEC`: an ordinary program, which is not policed;
+   - any other error: a warning is logged and no region is recorded. This fails closed: no thread is ever armed, so the #UD of the program's first `ud2` is delivered as SIGILL (illegal instruction) and kills it.
 
-**The relevant parts** (section 2): segments, the section-to-segment mapping, the sections, and the region symbols.
-
-```bash
-readelf -lW cat_defended
-readelf -SW cat_defended | grep -E 'note|text'
-nm cat_defended | grep aon
-```
-
-**The note** (section 3): decoded, then as raw bytes with their addresses. The descriptor starts at the note's address + `0x10`; adding each offset to it gives the bounds `nm` prints for `__start_aon_text` and `__stop_aon_text`.
-
-```bash
-readelf -nW cat_defended
-readelf -x .note.aon cat_defended
-```
-
-**The AoN blocks**, the whole `aon_text` section:
-
-```bash
-objdump -d -j aon_text cat_defended
-```
-
-**The kernel module** (section 5): load it, run the program, read the log. Loading needs root.
-
-```bash
-make -C ../../kernel
-sudo insmod ../../kernel/aon_mod.ko
-./cat_defended aligned; echo "exit=$?"
-sudo dmesg | grep 'aon:' | tail -3
-```
-
-Expected: a `protecting [start, end)` line with the bounds `nm` printed, then `BLOCKED system call nr=59 ... (unarmed egress gate)`, and `exit=3`.
-
-**Stripped binary**: `strip` removes the symbols but not the note, which is in a segment. The kernel still finds the region and blocks the attack.
-
-```bash
-strip -o /tmp/cat_stripped cat_defended
-readelf -nW /tmp/cat_stripped | grep AoN
-/tmp/cat_stripped aligned; echo "exit=$?"
-```
+The region then follows the address space: a forked child gets a copy of it, threads share it, and it is dropped when the address space is destroyed (`exit_mmap`).
