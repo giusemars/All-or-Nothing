@@ -11,10 +11,7 @@ __aon_read:   ud2                 # ingress gate
               ret                 # outside the block: ordinary return
 ```
 
-The defense guarantees that a protected process can invoke a system call **only** by running one of these blocks from its ingress gate to its egress gate. It defeats two code-reuse attack vectors:
-
-- **Vector A, aligned gadget**: a jump straight onto the `syscall` of a wrapper, past its ingress gate and body;
-- **Vector B, misaligned site**: a jump onto a `0f 05` hidden inside the bytes of an ordinary routine.
+The defense guarantees that a protected process can invoke a system call **only** by running one of these blocks from its ingress gate to its egress gate.
 
 The defense has three components, each active in a different phase of the program's life:
 
@@ -76,7 +73,7 @@ ssize_t read(int fd, void *buf, size_t count)
 }
 ```
 
-### From `read()` to the AoN block
+### Hardened wrapper
 
 The AoN version replaces only `sys_read`, so every `read` goes through one AoN block.
 When compiling with the flag `-DNOLIBC_AON`, `sys.h` declares raw wrappers (`sys_open`, ...) `extern` instead of defining them, so they resolve to the AoN blocks of [`aon_syscalls.S`](../aonlibc/aon_syscalls.S).
@@ -84,11 +81,13 @@ The public functions ([`aonlibc/nolibc/sys.h`](../aonlibc/nolibc/sys.h)) are unt
 
 ```c
 #ifdef NOLIBC_AON
-ssize_t sys_read(int fd, void *buf, size_t count);   /* PoC patch: the AoN block, in aon_syscalls.S */
+extern ssize_t sys_read(int fd, void *buf, size_t count);   /* PoC patch: the AoN block, in aon_syscalls.S */
 #else
 ssize_t sys_read(int fd, void *buf, size_t count)
 {
-	return my_syscall3(__NR_read, fd, buf, count);   /* upstream: its own syscall */
+	register long rax __asm__("rax") = __NR_read;    /* system call nr = 0 (read) */
+	...
+	return rax;
 }
 #endif
 
@@ -102,29 +101,29 @@ ssize_t read(int fd, void *buf, size_t count)
 	.section	aon_text, "ax", @progbits, unique, 2
 sys_read:
 __aon_read:
-	ud2			/* INGRESS GATE (0f 0b) in defended build */
+	ud2			        /* INGRESS GATE (0f 0b) in defended build */
 	movl	$0, %eax	/* body: system call nr = 0 (read)        */
 	syscall				/* EGRESS GATE (read)                     */
 	ret					/* outside the block: back to the caller  */
 ```
 
-`ud2` is not present if not compiled with `-DAON_DEFEND`.
+- `ud2` is not present if not compiled with `-DAON_DEFEND`.
+- The raw wrapper is the AoN block ([`aonlibc/aon_syscalls.S`](../aonlibc/aon_syscalls.S)).
+- `sys_read` and `__aon_read` are two labels on the same address, so the `call sys_read` lands directly on the ingress gate.
 
-
-**The raw wrapper is the AoN block** ([`aonlibc/aon_syscalls.S`](../aonlibc/aon_syscalls.S)). 
-`sys_read` and `__aon_read` are two labels on the same address, so the `call sys_read` lands directly on the ingress gate.
+### Calling convention
 
 The body needs only one instruction, the one that pins the system call nr, because two calling conventions happen to agree:
 
-| Register          | C function call (System V ABI) | System call (Linux x86_64)            |
-| ----------------- | ------------------------------ | ------------------------------------- |
-| `rax`             | return value                   | system call nr in, return value out   |
-| `rdi`             | 1st argument                   | 1st argument                          |
-| `rsi`             | 2nd argument                   | 2nd argument                          |
-| `rdx`             | 3rd argument                   | 3rd argument                          |
-| `rcx`             | 4th argument (scratch)         | overwritten by `syscall` (return RIP) |
-| `r10`             | scratch                        | 4th argument                          |
-| `r11`             | scratch                        | overwritten by `syscall` (RFLAGS)     |
+| Register | C function call (System V ABI) | System call (Linux x86_64)            |
+| -------- | ------------------------------ | ------------------------------------- |
+| `rax`    | return value                   | system call nr in, return value out   |
+| `rdi`    | 1st argument                   | 1st argument                          |
+| `rsi`    | 2nd argument                   | 2nd argument                          |
+| `rdx`    | 3rd argument                   | 3rd argument                          |
+| `rcx`    | 4th argument (scratch)         | overwritten by `syscall` (return RIP) |
+| `r10`    | scratch                        | 4th argument                          |
+| `r11`    | scratch                        | overwritten by `syscall` (RFLAGS)     |
 
 - **Arguments.** When `read()` executes `call sys_read`, the compiler has already put `fd`, `buf` and `count` in `rdi`, `rsi` and `rdx`, the same registers where the kernel looks for the arguments of `read`. The block does not touch them.
 - **System call nr.** The only thing the kernel needs that C did not provide is the nr in `rax`, which is the body's `movl $0, %eax`. Because the nr is a constant inside the block, the block can only invoke `read`, whatever `rax` held before.
@@ -132,24 +131,6 @@ The body needs only one instruction, the one that pins the system call nr, becau
 - **Clobbered registers.** `syscall` overwrites `rcx` and `r11`. For C these are scratch registers that the caller never expects to survive a call, so nothing needs saving.
 
 The conventions differ only from the 4th argument on (`rcx` for C, `r10` for the kernel). Most wrappers have at most three arguments. `sys_rt_sigaction` has four, so it has a two-instruction stub in `.text`, outside the AoN region, that moves `rcx` to `r10` and jumps to the ingress gate of `__aon_rt_sigaction`.
-
-
-In a linked defended binary (`objdump -d <program>`), the chain looks like this (addresses are illustrative):
-
-```
-00000000004012ac <read>:                      # nolibc public function
-  ...
-  4012cf:  call   401589 <__aon_read>         #   -> AoN block (== sys_read)
-  4012d4:  mov    %rax,-0x8(%rbp)             #   <- the ret lands here
-  4012d8:  cmpq   $0x0,-0x8(%rbp)             #   __sysret(): negative -> errno
-  ...
-
-0000000000401589 <__aon_read>:                # AoN block, inside aon_text
-  401589:  0f 0b             ud2              #   ingress gate: arm
-  40158b:  b8 00 00 00 00    mov  $0x0,%eax   #   body: nr = 0 (read)
-  401590:  0f 05             syscall          #   egress gate: check and disarm
-  401592:  c3                ret              #   outside the block
-```
 
 ### The defended build
 
@@ -260,12 +241,12 @@ Both failure modes fail closed: they can make a protected program fail, never le
 
 Take a protected program whose AoN region holds only the blocks of its required system calls, `execve` not among them. An attacker hijacks a thread: they control its registers and where it jumps next, and want it to invoke `execve` (nr 59), so they set `eax = 59` and the arguments, then jump to a site. Every choice of site fails:
 
-| Jump target                                                              | What the module sees                                                       | Outcome                                                                     |
-| ------------------------------------------------------------------------ | -------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| the `syscall` of `__aon_read` (**vector A**, aligned gadget)              | a `syscall` inside the AoN region, thread not armed (it skipped the `ud2`) | refused: unarmed egress gate                                                |
-| a `0f 05` hidden inside an ordinary routine in `.text` (**vector B**, misaligned site) | a `syscall` outside the AoN region                                         | refused: outside the AoN region                                             |
-| the `ud2` of `__aon_read` (whole-block reuse)                             | an ingress gate, then its egress gate                                      | allowed, but the body overwrites `eax` with 0: the kernel runs `read`, not `execve` |
-| a `ud2` the attacker finds elsewhere in the region                        | —                                                                          | cannot exist: the verifier proved every `0f 0b` in the region is an ingress gate |
+| Jump target                                                                            | What the module sees                                                       | Outcome                                                                             |
+| -------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| the `syscall` of `__aon_read` (**vector A**, aligned gadget)                           | a `syscall` inside the AoN region, thread not armed (it skipped the `ud2`) | refused: unarmed egress gate                                                        |
+| a `0f 05` hidden inside an ordinary routine in `.text` (**vector B**, misaligned site) | a `syscall` outside the AoN region                                         | refused: outside the AoN region                                                     |
+| the `ud2` of `__aon_read` (whole-block reuse)                                          | an ingress gate, then its egress gate                                      | allowed, but the body overwrites `eax` with 0: the kernel runs `read`, not `execve` |
+| a `ud2` the attacker finds elsewhere in the region                                     | —                                                                          | cannot exist: the verifier proved every `0f 0b` in the region is an ingress gate    |
 
 The two refusals show up in the kernel log as:
 
