@@ -103,10 +103,11 @@ items (other kernel entry paths for system calls, AoN region immutability).
 ## Layout & commands
 
 This is the final, trimmed run: two scenarios built on the shared aonlibc
-syscall library, plus the kernel module and the build-time verifier.
+system call library, plus the kernel module and the build-time verifier.
 `user/cat/` is the template for further scenarios.
 
-- `aonlibc/` — the hardened syscall library (shared), see `aonlibc/README.md`:
+- `aonlibc/` — the hardened system call library (shared), see
+  `documentation/defense.md` ("Build time"):
   - `aonlibc/nolibc/` — vendored nolibc; under `-DNOLIBC_AON`, `sys.h` makes the
     six `sys_*` wrappers extern so they bind to `aon_syscalls.S`
   - `aonlibc/aon_syscalls.S` — the hardened named wrappers, each invoking the
@@ -131,7 +132,7 @@ syscall library, plus the kernel module and the build-time verifier.
     `make defend-run` / `make clean` (run from the dir); self-contained,
     compiles the `aonlibc/` sources directly
 - `user/signal/` — same layout as `cat` (no `gadget.S`/`reset.sh`),
-  isolating the module's **signal rule**. One source-stepped `write` carrier
+  isolating the module's **signal rule**. One single-stepped `write` carrier
   drives three operands: `correctness` (a signal delivered while the thread is
   armed inside an AoN block refuses that block's egress gate → retry),
   `attack-armed` and `attack-unarmed` (a handler reusing the read egress gate
@@ -145,7 +146,8 @@ syscall library, plus the kernel module and the build-time verifier.
   untimed `lseek`; built as `bench` / `bench_defended` / `bench_seccomp` /
   `bench_seccomp_ip`; driven by `evaluation/cost/` (`SIZES`, `SINK`,
   `MAX_FILE_SIZE` in `cost.conf`)
-- `evaluation/` — see `evaluation/README.md`: `security/` (`run_security.sh`
+- `evaluation/` — see `documentation/evaluation.md`:
+  `security/` (`run_security.sh`
   + `analyze_binary.py` + `summarize.py`, correctness and security rows
   C1–C5, S1–S4) and `cost/` (`run_cost.sh` + `analyze_cost.py`, cost rows
   P0–P3); results of both in `evaluation/results/`
@@ -153,6 +155,9 @@ syscall library, plus the kernel module and the build-time verifier.
 - `tools/` — the **build-time verifier** component: `verify_aon.py` (no stray
   `ud2` in the AoN region besides the ingress gates), run on every defended
   build
+- `documentation/` — every guide (the only `.md` files besides `README.md`
+  and this one): repository, requirements, defense, attack,
+  evaluation, ELF-note
 - top-level `Makefile` — `make all` builds the scenarios + the module
 - Usage: `./cat <filename|aligned|misaligned>` (and the `./cat_defended` build)
 

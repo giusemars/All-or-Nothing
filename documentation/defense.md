@@ -14,7 +14,7 @@ __aon_read:   ud2                 # ingress gate
 - **Ingress gate** (`ud2`): the kernel **arms** the thread, i.e. it records that the thread entered the block.
 - **Egress gate** (`syscall`): the kernel allows the system call only if the thread is armed, then **disarms** it.
 - **AoN region**: the memory range that holds all the AoN blocks of a program, and nothing else.
-- **Site**: any place where a `syscall` instruction can run.
+- **Site**: a block of code whose exit point is a `syscall`, aligned or misaligned. A wrapper is an intended aligned site.
 
 A **protected** program can invoke a system call only by running a block from its ingress gate to its egress gate. This stops two attacks:
 
@@ -50,7 +50,7 @@ Code and docs cite the requirements of the thesis by label, for example `(B2)` n
 
 D1–D4 give the thesis' four properties: **P1** every wrapper is bijective and individually includable, **P2** every wrapper in the binary is required, **P3** every wrapper is hardened, **P4** every invocation outside a wrapper's `syscall` is detected. Together, P2–P4 give **L1**: the process can invoke only its required system calls.
 
-Labels that are *not* requirements: the evaluation rows **C1–C5**, **S1–S4** (security) and **P0–P3** (cost) in [`evaluation.md`](evaluation.md) are just row IDs. In particular, the cost rows P0–P3 are unrelated to the properties P1–P4.
+Labels that are *not* requirements: the evaluation rows **C1–C5**, **S1–S4** (correctness and security) and **P0–P3** (cost) in [`evaluation.md`](evaluation.md) are just row IDs. In particular, the cost rows P0–P3 are unrelated to the properties P1–P4.
 
 ## Build time
 
@@ -58,7 +58,7 @@ Labels that are *not* requirements: the evaluation rows **C1–C5**, **S1–S4**
 
 ### The base library: nolibc
 
-The hardened library ([`aonlibc/`](../aonlibc/README.md)) is built on **nolibc**, the small C library that ships with the Linux kernel sources. It is made only of headers, is meant for static linking, and makes every system call through its own `sys_*` raw wrappers, so all of them can be replaced by AoN blocks.
+The hardened library ([`aonlibc/`](../aonlibc/)) is built on **nolibc**, the small C library that ships with the Linux kernel sources. It is made only of headers, is meant for static linking, and makes every system call through its own `sys_*` raw wrappers, so all of them can be replaced by AoN blocks.
 
 Each system call has two layers in [`nolibc/sys.h`](../aonlibc/nolibc/sys.h):
 
@@ -156,6 +156,8 @@ A defended program is linked with `-nostdlib -static`: no system C library, and 
 - the **vDSO** has a fallback `syscall` (nolibc never uses it).
 
 All of these would be outside the region and refused. With static linking, every `syscall` is in a block of the executable. (`-no-pie` is also used, but the defense does not need it.)
+
+Static linking is not enough on its own: every system call the program makes must go through a wrapper in `aon_syscalls.S`, including the `exit` that nolibc's startup runs when `main` returns. The parts of nolibc that issue a `syscall` of their own (the generic `syscall()` macro, the stack protector, its signal restorers) would be refused at run time, so a protected program must not use them. `execve` and every other system call without a wrapper are absent on purpose: the scenarios never invoke them, which is what makes the reuse attacks meaningful.
 
 ### The verifier
 

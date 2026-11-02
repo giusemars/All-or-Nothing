@@ -2,7 +2,7 @@
 
 ## Background
 
-The victim is `cat` ([`user/cat/`](../user/cat/README.md)): it opens a file,
+The victim is `cat` ([`user/cat/`](../user/cat/)): it opens a file,
 `read`s it, `write`s it to stdout and `close`s it. Its **intended system
 calls** are `open`, `read`, `write`, `close` and `exit`, each made through its
 hardened named wrapper.
@@ -13,10 +13,10 @@ the only way to get it is **code reuse**: put 59 in `%rax`, the arguments in
 `%rdi`/`%rsi`/`%rdx`, and jump to a `syscall` instruction already in the
 binary. There are two kinds of such instruction, and so two vectors:
 
-| Vector | Target | Kind of site | Refused on the defended build because |
-| --- | --- | --- | --- |
-| **A** | the `syscall` of the read wrapper (`sys_read_egress`) | aligned gadget: an intended block entered in the middle | the thread never passed the ingress gate: **unarmed egress gate** (B2) |
-| **B** | a `0f 05` hidden inside an instruction of `benign_compute` | misaligned site: a `syscall` nobody wrote | the `syscall` is **outside the AoN region** (D4) |
+| Vector | Target                                                     | Kind of site                                            | Refused on the defended build because                                  |
+| ------ | ---------------------------------------------------------- | ------------------------------------------------------- | ---------------------------------------------------------------------- |
+| **A**  | the `syscall` of the read wrapper (`sys_read_egress`)      | aligned gadget: an intended block entered in the middle | the thread never passed the ingress gate: **unarmed egress gate** (B2) |
+| **B**  | a `0f 05` hidden inside an instruction of `benign_compute` | misaligned site: a `syscall` nobody wrote               | the `syscall` is **outside the AoN region** (D4)                       |
 
 The attacker's program here is `/bin/echo`, which prints
 `[attacker] execve() hijack succeeded -- process image replaced`. That makes a
@@ -28,11 +28,11 @@ A real attack needs a memory-corruption bug and information leaks. The PoC
 **simulates** them so the attack is deterministic and identical on both
 builds. Three pieces stand in for the bug:
 
-| Piece | File | Stands in for |
-| --- | --- | --- |
-| `hijack` | [`user/cat/attacker.S`](../user/cat/attacker.S) | the bug itself: arbitrary register state + control-flow redirection |
-| `sys_read_egress` | [`aonlibc/aon_syscalls.S`](../aonlibc/aon_syscalls.S) | an address leak of the read wrapper's `syscall` |
-| `benign_compute` | [`user/cat/gadget.S`](../user/cat/gadget.S) | an unlucky routine whose bytes contain `0f 05` |
+| Piece             | File                                                  | Stands in for                                                       |
+| ----------------- | ----------------------------------------------------- | ------------------------------------------------------------------- |
+| `hijack`          | [`user/cat/attacker.S`](../user/cat/attacker.S)       | the bug itself: arbitrary register state + control-flow redirection |
+| `sys_read_egress` | [`aonlibc/aon_syscalls.S`](../aonlibc/aon_syscalls.S) | an address leak of the read wrapper's `syscall`                     |
+| `benign_compute`  | [`user/cat/gadget.S`](../user/cat/gadget.S)           | an unlucky routine whose bytes contain `0f 05`                      |
 
 All three exist in both builds, and `cat.c` calls them the same way. The only
 difference between `cat` and `cat_defended` is the wrappers.
@@ -154,17 +154,18 @@ make -C user/cat defend-run
 
 The second needs `aon_mod` loaded. Expected results:
 
-| Command | Baseline `./cat` | Defended `./cat_defended` + `aon_mod` |
-| --- | --- | --- |
-| `victim.txt` | prints the file, exit 0 | prints the file, exit 0 |
-| `aligned` | `[attacker] execve() hijack succeeded ...` | refused (unarmed egress gate), exit 3 |
+| Command      | Baseline `./cat`                           | Defended `./cat_defended` + `aon_mod`    |
+| ------------ | ------------------------------------------ | ---------------------------------------- |
+| `victim.txt` | prints the file, exit 0                    | prints the file, exit 0                  |
+| `aligned`    | `[attacker] execve() hijack succeeded ...` | refused (unarmed egress gate), exit 3    |
 | `misaligned` | `[attacker] execve() hijack succeeded ...` | refused (outside the AoN region), exit 3 |
 
-These are rows S1 and S2 of the evaluation ([`evaluation.md`](evaluation.md)).
+The two attacks are rows S1 and S2 of the evaluation, and the `victim.txt`
+line is part of row C1 ([`evaluation.md`](evaluation.md#correctness-and-security-c1c5-s1s4)).
 
 ## The same attack from a signal handler
 
-[`user/signal/`](../user/signal/README.md) repeats vector A from inside a
+[`user/signal/`](evaluation.md#sig) repeats vector A from inside a
 signal handler. It uses the same `hijack` and the same `sys_read_egress`
 target, and checks that the arming of an interrupted thread never leaks into
 the handler:

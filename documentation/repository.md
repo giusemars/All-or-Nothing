@@ -12,7 +12,7 @@ and Python packages see [`requirements.md`](requirements.md).
 ```
 All-or-Nothing/
 ├── Makefile              top level: builds everything below
-├── aonlibc/              the hardened syscall library (no Makefile)
+├── aonlibc/              the hardened system call library (no Makefile)
 │   ├── nolibc/           vendored nolibc (Linux v6.12), patched for -DNOLIBC_AON
 │   └── aon_syscalls.S    the hardened named wrappers (baseline or AoN blocks)
 ├── user/                 the PoC scenarios (victim + simulated attacker)
@@ -32,10 +32,10 @@ All-or-Nothing/
 
 The three components of the thesis map onto the tree as follows:
 
-| Component | Where |
-| --- | --- |
-| hardened library | `aonlibc/` |
-| kernel module | `kernel/` |
+| Component           | Where                 |
+| ------------------- | --------------------- |
+| hardened library    | `aonlibc/`            |
+| kernel module       | `kernel/`             |
 | build-time verifier | `tools/verify_aon.py` |
 
 Everything in `user/` and `evaluation/` is built on top of these three.
@@ -62,7 +62,7 @@ make -C user/signal run defend-run
 
 The baseline runs (`run`) show both attacks succeeding (`/bin/echo` replaces
 the process); the defended runs (`defend-run`) show them refused (exit 3).
-Unload the module with `rmmod aon_mod` (or `make -C kernel unload`).
+Unload the module with `sudo rmmod aon_mod` (or `make -C kernel unload`).
 
 ## Build model
 
@@ -101,27 +101,27 @@ include).
 
 ### Top level
 
-| File | Role |
-| --- | --- |
-| `Makefile` | convenience targets, see below |
+| File                  | Role                                                                                                                      |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `Makefile`            | convenience targets, see below                                                                                            |
 | `.clangd`, `.vscode/` | editor/LSP configuration only, not used by the build; `compile_commands.json` files are generated locally and not tracked |
 
 **`Makefile`**
 
-| Target | Does |
-| --- | --- |
+| Target              | Does                                                                                                                         |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
 | `make` / `make all` | `user/cat`: `cat cat_defended`; `user/signal`: `sig sig_defended`; `evaluation/bench`: all four builds; `kernel`: the module |
-| `make clean` | `make clean` in `user/cat`, `user/signal`, `evaluation/bench`, `kernel` |
+| `make clean`        | `make clean` in `user/cat`, `user/signal`, `evaluation/bench`, `kernel`                                                      |
 
-### `aonlibc/` — the hardened syscall library
+### `aonlibc/` — the hardened system call library
 
 No Makefile on purpose: each consumer compiles these sources directly (see
-[Build model](#build-model)). Details in
-[`../aonlibc/README.md`](../aonlibc/README.md).
+[Build model](#build-model)). How the wrappers and the AoN region are built
+is in [`defense.md`](defense.md#build-time).
 
-| File | Role |
-| --- | --- |
-| `nolibc/` | vendored nolibc from Linux v6.12 `tools/include/nolibc`; one patch in `sys.h` makes the six `sys_*` wrappers `extern` under `-DNOLIBC_AON` |
+| File             | Role                                                                                                                                                                                                                                                                                                                                                      |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `nolibc/`        | vendored nolibc from Linux v6.12 `tools/include/nolibc`; one patch in `sys.h` makes the six `sys_*` wrappers `extern` under `-DNOLIBC_AON`. Each of the six patched sites is commented `PoC patch:`, so `grep -n 'PoC patch' aonlibc/nolibc/sys.h` lists them; without `-DNOLIBC_AON` it is ordinary nolibc                                               |
 | `aon_syscalls.S` | the hardened named wrappers. File I/O + exit: `sys_open`, `sys_read`, `sys_write`, `sys_close`, `sys_exit` (cat's intended system calls) and `sys_lseek` (benchmark only). Signals: `sys_rt_sigaction`, `sys_setitimer`, `sys_rt_sigreturn` (the AoN `SA_RESTORER`). Each block is its own `aon_text` input section, so only the required ones are linked |
 
 To add a wrapper, add a block to `aon_syscalls.S` following the existing
@@ -131,111 +131,109 @@ ones; a program that calls it will link it in, and no other program will.
 
 A minimal `cat` (`open` → `read` loop → `write` to stdout → `close`) and the
 simulated attacker whose goal is `execve` (nr 59), not an intended system
-call. How the attacks work in [`attack.md`](attack.md); details in
-[`../user/cat/README.md`](../user/cat/README.md). This
-directory is also the template for new scenarios.
+call. How the attacks work in [`attack.md`](attack.md). This directory is also the
+template for new scenarios.
 
-| File | Role |
-| --- | --- |
-| `cat.c`, `cat.h` | the victim and the attack driver |
-| `gadget.S` | `benign_compute`, an ordinary routine whose bytes hide a misaligned `0f 05` (vector B) |
-| `attacker.S` | `hijack`, the simulated attacker primitive (sets registers, redirects control flow) |
-| `reset.sh` | rewrites `victim.txt` with its demo content (`./reset.sh [FILE]`) |
-| `Makefile` | see below |
+| File             | Role                                                                                   |
+| ---------------- | -------------------------------------------------------------------------------------- |
+| `cat.c`, `cat.h` | the victim and the attack driver                                                       |
+| `gadget.S`       | `benign_compute`, an ordinary routine whose bytes hide a misaligned `0f 05` (vector B) |
+| `attacker.S`     | `hijack`, the simulated attacker primitive (sets registers, redirects control flow)    |
+| `reset.sh`       | rewrites `victim.txt` with its demo content (`./reset.sh [FILE]`)                      |
+| `Makefile`       | see below                                                                              |
 
 **`Makefile`** (run from `user/cat/`)
 
-| Target | Does |
-| --- | --- |
-| `make` / `make cat` | baseline `./cat` |
-| `make cat_defended` | defended `./cat_defended`, then verifier + note check |
-| `make run` | `reset.sh`, then `./cat victim.txt`, `./cat aligned`, `./cat misaligned` |
-| `make defend-run` | same three with `./cat_defended` (load `aon_mod` first) |
-| `make clean` | removes binaries, objects and `victim.txt` |
+| Target              | Does                                                                     |
+| ------------------- | ------------------------------------------------------------------------ |
+| `make` / `make cat` | baseline `./cat`                                                         |
+| `make cat_defended` | defended `./cat_defended`, then verifier + note check                    |
+| `make run`          | `reset.sh`, then `./cat victim.txt`, `./cat aligned`, `./cat misaligned` |
+| `make defend-run`   | same three with `./cat_defended` (load `aon_mod` first)                  |
+| `make clean`        | removes binaries, objects and `victim.txt`                               |
 
 **Usage:** `./cat <filename|aligned|misaligned>` (same for `./cat_defended`).
 
-| Operand | Baseline `./cat` | Defended `./cat_defended` + `aon_mod` |
-| --- | --- | --- |
-| any file name | prints the file | prints the file (same output) |
-| `aligned` (vector A: jump onto `sys_read_egress`, the read wrapper's egress gate) | `execve` runs, `/bin/echo` replaces the process | refused: unarmed egress gate (B2), exit 3 |
-| `misaligned` (vector B: jump onto the misaligned `syscall` in `gadget.S`) | `execve` runs | refused: `syscall` outside the AoN region (D4), exit 3 |
+| Operand                                                                           | Baseline `./cat`                                | Defended `./cat_defended` + `aon_mod`                  |
+| --------------------------------------------------------------------------------- | ----------------------------------------------- | ------------------------------------------------------ |
+| any file name                                                                     | prints the file                                 | prints the file (same output)                          |
+| `aligned` (vector A: jump onto `sys_read_egress`, the read wrapper's egress gate) | `execve` runs, `/bin/echo` replaces the process | refused: unarmed egress gate (B2), exit 3              |
+| `misaligned` (vector B: jump onto the misaligned `syscall` in `gadget.S`)         | `execve` runs                                   | refused: `syscall` outside the AoN region (D4), exit 3 |
 
 ### `user/signal/` — the signal rule
 
 Same layout as `cat` (no `gadget.S`, no `reset.sh`). One single-stepped
 `write` (`EFLAGS.TF`, so a `SIGTRAP` is delivered mid-wrapper) drives three
-operands. Details in [`../user/signal/README.md`](../user/signal/README.md).
+operands. Details in
+[`evaluation.md`](evaluation.md#sig).
 
-| File | Role |
-| --- | --- |
+| File             | Role                                                                                                   |
+| ---------------- | ------------------------------------------------------------------------------------------------------ |
 | `sig.c`, `sig.h` | the program and its `SIGTRAP` handler; uses `sys_rt_sigaction` and the AoN `sys_rt_sigreturn` restorer |
-| `attacker.S` | `hijack`, as in `cat` |
-| `Makefile` | see below |
+| `attacker.S`     | `hijack`, as in `cat`                                                                                  |
+| `Makefile`       | see below                                                                                              |
 
 **`Makefile`** (run from `user/signal/`)
 
-| Target | Does |
-| --- | --- |
-| `make` / `make sig` | baseline `./sig` |
-| `make sig_defended` | defended `./sig_defended`, then verifier + note check |
-| `make run` | `./sig correctness`, `attack-armed`, `attack-unarmed` |
-| `make defend-run` | same three with `./sig_defended` (load `aon_mod` first) |
-| `make clean` | removes binaries and objects |
+| Target              | Does                                                    |
+| ------------------- | ------------------------------------------------------- |
+| `make` / `make sig` | baseline `./sig`                                        |
+| `make sig_defended` | defended `./sig_defended`, then verifier + note check   |
+| `make run`          | `./sig correctness`, `attack-armed`, `attack-unarmed`   |
+| `make defend-run`   | same three with `./sig_defended` (load `aon_mod` first) |
+| `make clean`        | removes binaries and objects                            |
 
 **Usage:** `./sig <correctness|attack-armed|attack-unarmed>`.
 
-| Operand | Baseline | Defended + `aon_mod` |
-| --- | --- | --- |
-| `correctness` | first `write` succeeds ("not demonstrated": nothing to disarm) | the armed `write`'s egress gate is refused once, the caller retries and succeeds |
-| `attack-armed` | handler's `execve` runs | refused: the thread was disarmed before the handler ran, exit 3 |
-| `attack-unarmed` | handler's `execve` runs | refused: a handler is never armed, exit 3 |
+| Operand          | Baseline                                                               | Defended + `aon_mod`                                                                     |
+| ---------------- | ---------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `correctness`    | first `write` succeeds ("not demonstrated": nothing to disarm), exit 1 | the armed `write`'s egress gate is refused once, the caller retries and succeeds, exit 0 |
+| `attack-unarmed` | handler's `execve` runs                                                | refused: a handler is never armed, exit 3                                                |
+| `attack-armed`   | handler's `execve` runs                                                | refused: the thread was disarmed before the handler ran, exit 3                          |
 
 ### `kernel/` — `aon_mod`
 
 An out-of-tree module, no kernel patch and no user-space API: it finds each
 program's AoN region from its `.note.aon` at exec.
 
-| File | Role |
-| --- | --- |
-| `aon_main.c` | module init/exit, wires the pieces together |
-| `aon_lifecycle.c` | exec (kprobe on `finalize_exec`: read the note), fork (copy the region), exit (drop it) |
-| `aon_elf.c` | locates the AoN note in a freshly exec'd address space |
-| `aon_state.c` | per-mm AoN region table and per-thread armed state |
-| `aon_enforce.c` | ingress gate (#UD die notifier → arm), egress gate (`syscall` check → disarm or refuse), signal rule (kprobe on `x64_setup_rt_frame` → disarm) |
-| `aon.h` | internal interfaces between the files above |
-| `Kbuild` | `obj-m := aon_mod.o` and its object list |
+| File              | Role                                                                                                                                           |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `aon_main.c`      | module init/exit, wires the pieces together                                                                                                    |
+| `aon_lifecycle.c` | exec (kprobe on `finalize_exec`: read the note), fork (copy the region), exit (drop it)                                                        |
+| `aon_elf.c`       | locates the AoN note in a freshly exec'd address space                                                                                         |
+| `aon_state.c`     | per-mm AoN region table and per-thread armed state                                                                                             |
+| `aon_enforce.c`   | ingress gate (#UD die notifier → arm), egress gate (`syscall` check → disarm or refuse), signal rule (kprobe on `x64_setup_rt_frame` → disarm) |
+| `aon.h`           | internal interfaces between the files above                                                                                                    |
+| `Kbuild`          | `obj-m := aon_mod.o` and its object list                                                                                                       |
 
 **`Makefile`** (run from `kernel/`; builds against `/lib/modules/$(uname -r)/build`)
 
-| Target | Does |
-| --- | --- |
-| `make` | builds `aon_mod.ko` |
-| `make load` | builds, then `sudo insmod aon_mod.ko` |
-| `make unload` | `sudo rmmod aon_mod` |
-| `make reload` | unload + load |
-| `make clean` | kbuild clean (keeps `compile_commands.json`) |
+| Target        | Does                                         |
+| ------------- | -------------------------------------------- |
+| `make`        | builds `aon_mod.ko`                          |
+| `make load`   | builds, then `sudo insmod aon_mod.ko`        |
+| `make unload` | `sudo rmmod aon_mod`                         |
+| `make reload` | unload + load                                |
+| `make clean`  | kbuild clean (keeps `compile_commands.json`) |
 
 **Parameters** (`/sys/module/aon_mod/parameters/`):
 
-| Name | Meaning |
-| --- | --- |
+| Name                              | Meaning                                                                                                                                                                  |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `neutralize_mode` (rw, default 1) | how a system call is refused: 1 = rewrite the nr so it returns `-ENOSYS` (safe); 0 = skip `x64_sys_call` and return `-EACCES` (depends on the stack layout at the probe) |
-| `signal_disarms` (ro) | how many times the signal rule disarmed a thread; unlike the `aon:` log lines it is not rate limited |
+| `signal_disarms` (ro)             | how many times the signal rule disarmed a thread; unlike the `aon:` log lines it is not rate limited                                                                     |
 
 Refusals are logged to the kernel log with the prefix `aon:` (`dmesg`).
 
 ### `tools/` — the build-time verifier
 
-| File | Role |
-| --- | --- |
+| File            | Role                                                                                                                                                                                                                                                                        |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `verify_aon.py` | `verify_aon.py <binary>`: every `0f 0b` (at any offset) inside `[__start_aon_text,__stop_aon_text)` must be an ingress gate (an `__aon_*` symbol). Exit 0 = ok, 1 = stray `ud2`, 2 = usage/ELF error. Standard library only; run automatically by every `*_defended` target |
 
 ### `evaluation/` — measurements
 
-How it works in [`evaluation.md`](evaluation.md); overview in
-[`../evaluation/README.md`](../evaluation/README.md). Both
-blocks need root (they load and unload `aon_mod`) and write into
+How it works, and how to run it, in [`evaluation.md`](evaluation.md). Both blocks need root (they load and unload `aon_mod`) and write into
 `evaluation/results/`.
 
 #### `evaluation/bench/` — the benchmark program
@@ -246,14 +244,14 @@ of `SIZE` bytes to a file kept within `MAX` bytes by an untimed `lseek`.
 
 **`Makefile`** (`-O2`; otherwise the scenario recipe)
 
-| Target | Builds |
-| --- | --- |
-| `make` / `make all` | all four below |
-| `bench` | baseline wrappers, not policed |
-| `bench_defended` | AoN blocks + `.note.aon` (verifier + note check) |
-| `bench_seccomp` | baseline + seccomp filter on the system call nr |
-| `bench_seccomp_ip` | as above, each nr also pinned to its wrapper's `syscall` by instruction pointer |
-| `make clean` | removes the four binaries and objects |
+| Target              | Builds                                                                          |
+| ------------------- | ------------------------------------------------------------------------------- |
+| `make` / `make all` | all four below                                                                  |
+| `bench`             | baseline wrappers, not policed                                                  |
+| `bench_defended`    | AoN blocks + `.note.aon` (verifier + note check)                                |
+| `bench_seccomp`     | baseline + seccomp filter on the system call nr                                 |
+| `bench_seccomp_ip`  | as above, each nr also pinned to its wrapper's `syscall` by instruction pointer |
+| `make clean`        | removes the four binaries and objects                                           |
 
 **Operands:** `loop <N>`, `lat <N>`, `nop <N>`, `stream`, `stream-nop`,
 `block`; `loop`, `lat` and `stream` accept `SIZE SINK MAX` for real writes.
@@ -265,11 +263,11 @@ of `SIZE` bytes to a file kept within `MAX` bytes by an untimed `lseek`.
 evaluation/security/run_security.sh [outdir]
 ```
 
-Clean `make all`, static evidence on the defended binaries
+Clean `make all`, static evidence on the four `cat` and `sig` binaries
 (`analyze_binary.py`), then every dynamic case with `aon_mod` freshly loaded:
 one representative run, `REPEAT` (default 100) repeats, one `strace -n -k`.
 Writes `evaluation/results/<date>/` with `RESULTS.md` (`summarize.py`).
-Details in [`../evaluation/security/README.md`](../evaluation/security/README.md).
+Details in [`evaluation.md`](evaluation.md#running-it).
 
 #### `evaluation/cost/` — rows P0–P3
 
@@ -283,7 +281,7 @@ Reads `cost.conf` (any key can be overridden from the environment, e.g.
 loaded and idle), each under batch means (`batch_means.py`), then
 `analyze_cost.py` writes `COST.md` and two CSVs into
 `evaluation/results/cost-<branch>-<commit>/`. Needs numpy and scipy.
-Details in [`../evaluation/cost/README.md`](../evaluation/cost/README.md).
+Details in [`evaluation.md`](evaluation.md#cost-p0p3).
 
 #### `evaluation/results/`
 
@@ -293,14 +291,14 @@ samples are never committed.
 
 ### `documentation/`
 
-| File | Content |
-| --- | --- |
-| `repository.md` | this guide |
-| `requirements.md` | platform, kernel, toolchain, Python and evaluation tools needed |
-| `defense.md` | how the defense works: build time, startup/teardown, run time, state, limits |
-| `attack.md` | vectors A and B, and the simulated vulnerabilities they use |
-| `evaluation.md` | how the evaluation works: the rows, the steps of each script, how outcomes are judged, batch means |
-| `ELF-note.md` | the `.note.aon` record, how it is produced and read, and how to inspect it |
+| File              | Content                                                                                                                                                        |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `repository.md`   | this guide                                                                                                                                                     |
+| `requirements.md` | platform, kernel, toolchain, Python and evaluation tools needed                                                                                                |
+| `defense.md`      | how the defense works: build time, startup/teardown, run time, state, limits                                                                                   |
+| `attack.md`       | vectors A and B, and the simulated vulnerabilities they use                                                                                                    |
+| `evaluation.md`   | the three scenarios (`cat`, `sig`, `bench`), then the experiments: rows, how outcomes are judged, batch means, how to run each block, the `cost.conf` settings |
+| `ELF-note.md`     | the `.note.aon` record: the ELF background, how it is produced and how the module reads it                                                                     |
 
 ## Adding a scenario
 
