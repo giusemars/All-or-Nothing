@@ -15,17 +15,17 @@ With the defense, a protected process can invoke a system call **only** by runni
 
 The defense has three parts. Each one works at a different moment in the program's life:
 
-| When  | Part                    | Source                                                                                           | What it does                                                                            |
-| ----- | ----------------------- | ------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------- |
-| Build | **hardened library**    | [`aonlibc/nolibc/`](../aonlibc/nolibc/), [`aonlibc/aon_syscalls.S`](../aonlibc/aon_syscalls.S)   | a small C library whose wrappers are AoN blocks, all in one region, described by a note |
-| Build | **build-time verifier** | [`tools/verify_aon.py`](../tools/verify_aon.py)                                                  | checks that the AoN region has no `ud2` except the ingress gates                        |
-| Exec  | **kernel module**       | [`kernel/aon_lifecycle.c`](../kernel/aon_lifecycle.c), [`kernel/aon_elf.c`](../kernel/aon_elf.c) | reads the note of the new program and saves where its AoN region is                     |
-| Run   | **kernel module**       | [`kernel/aon_enforce.c`](../kernel/aon_enforce.c), [`kernel/aon_state.c`](../kernel/aon_state.c) | arms the thread at the ingress gate, checks and disarms it at the egress gate           |
+| When             | Part                    | Source                                                                                           | What it does                                                                                               |
+| ---------------- | ----------------------- | ------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------- |
+| Build            | **hardened library**    | [`aonlibc/nolibc/`](../aonlibc/nolibc/), [`aonlibc/aon_syscalls.S`](../aonlibc/aon_syscalls.S)   | a small C library whose wrappers are AoN blocks, all in one region, described by a note                    |
+| Build            | **build-time verifier** | [`tools/verify_aon.py`](../tools/verify_aon.py)                                                  | checks that the AoN region has no `ud2` except the ingress gates                                           |
+| Startup/teardown | **kernel module**       | [`kernel/aon_lifecycle.c`](../kernel/aon_lifecycle.c), [`kernel/aon_elf.c`](../kernel/aon_elf.c) | reads the note of the new program, saves where its AoN region is, copies it at fork and removes it at exit |
+| Run              | **kernel module**       | [`kernel/aon_enforce.c`](../kernel/aon_enforce.c), [`kernel/aon_state.c`](../kernel/aon_state.c) | arms the thread at the ingress gate, checks and disarms it at the egress gate                              |
 
 <!-- This guide explains:
 
 - what the build produces
-- what the kernel module does at exec, while the program runs, and at fork and exit
+- what the kernel module does when a program starts and ends, and while it runs
 - what data the module keeps
 - what happens when an attacker takes control of a thread
 - what the defense does not cover
@@ -33,6 +33,8 @@ The defense has three parts. Each one works at a different moment in the program
 The ELF note, and how the module finds it, are explained in [`ELF-note.md`](ELF-note.md). -->
 
 ## Build time
+
+**Goal:** build the program so that it invokes system calls only through AoN blocks, with only the blocks it needs, all in one AoN region that an ELF note describes, and with no `ud2` in that region except the ingress gates.
 
 ### The base library: nolibc
 
@@ -132,6 +134,19 @@ __stop_aon_text:                   # first byte after the last block
 
 [`ELF-note.md`](ELF-note.md) explains the note in detail: its format ("What the note is"), how the linker builds the region and fills in the note ("How the note is produced"), and how the kernel module finds it at exec ("How the kernel module reads it").
 
+### Static linking
+
+A defended program is linked **statically**: `-nostdlib` leaves out the system C library (glibc) and its startup code, and `-static` copies all the code the program uses into the executable. Nothing else is loaded at run time.
+
+This matters because the module refuses every `syscall` outside the AoN region, and there is one region per program, described by the note in the executable:
+
+- **One file holds every `syscall`.** With static linking, all the code that can invoke a system call (the program and nolibc) is in the executable, so all of it can go through the AoN blocks of its one region.
+- **No dynamic loader.** A dynamic program starts in the loader (`ld-linux-x86-64.so.2`), which maps the shared libraries with its own `syscall`s, before the program runs. Those `syscall`s are outside the executable's AoN region and would be refused.
+- **No shared libraries.** A shared C library (`libc.so`) has its own `syscall` instructions, in its own memory range, outside the region. It would also bring in every wrapper it contains, not only the ones the program needs.
+- **No vDSO.** The kernel maps the vDSO into every process, and it contains a fallback `syscall`. nolibc does not use the vDSO, so that `syscall` is never reached; if it were, it would be refused as outside the region.
+
+The project also links with `-no-pie`, so the program is loaded at a fixed address. The defense does not depend on it: the note stores the region's limits relative to itself, and the module computes the load address at exec. See [`ELF-note.md`](ELF-note.md), "Static and dynamic executables".
+
 ### The verifier
 
 At an ingress gate, the kernel module only checks that the `ud2` is inside the AoN region (see [Run time](#run-time)).
@@ -148,15 +163,10 @@ The verifier makes sure there is no such extra `ud2`. It reads the executable fi
 
 This sums up the build time phase. A program is **defended** when it is built in four steps:
 
-1. **compile** the program against nolibc with `-DNOLIBC_AON`, so every public function calls an AoN block instead of running its own `syscall`;
-2. **assemble** the hardened library with `-DAON_DEFEND`, so each wrapper gets its `ud2` ingress gate, sits in its own `aon_text` section, and the `.note.aon` note is added;
-3. **link** statically with `-Wl,--gc-sections -Wl,-z,start-stop-gc`;
+1. **compile** the program against nolibc with `-DNOLIBC_AON`, which decides **where** the raw wrappers come from: every public function calls an AoN block of `aon_syscalls.S` instead of running its own `syscall`;
+2. **assemble** the hardened library with `-DAON_DEFEND`, which decides **whether** those wrappers are hardened: each one gets its `ud2` ingress gate and sits in its own `aon_text` section, and the `.note.aon` note is added. Both flags are needed: without the first the blocks are never called, without the second they have no ingress gates and no note;
+3. **link** statically with `-nostdlib -static -Wl,--gc-sections -Wl,-z,start-stop-gc` (see [Static linking](#static-linking));
 4. **verify** the result with `verify_aon.py`, and check with `readelf -n` that the note is still there. If a check fails, the build fails.
-
-**Both flags are needed**, because they control different things in different files:
-
-- `-DNOLIBC_AON` (program side, in nolibc's `sys.h`) decides **where** the raw wrappers come from: the AoN blocks of `aon_syscalls.S` instead of nolibc's own `syscall` code;
-- `-DAON_DEFEND` (library side, in `aon_syscalls.S`) decides **whether** those wrappers are hardened: with the `ud2` ingress gates and the `.note.aon` note.
 
 The result is one self-contained executable where:
 
@@ -166,26 +176,68 @@ The result is one self-contained executable where:
 - **every `syscall` in the program is an egress gate**: the C library has no `syscall` of its own, and there is no dynamic loader or shared library;
 - **every `ud2` in the region is an ingress gate**, as the verifier checked.
 
-## Exec time
+## Startup and teardown time
 
-The module only protects programs started (with `execve`) **after** the module was loaded. It uses a kprobe, a hook on a kernel function, on `finalize_exec()`. At that point the new program is fully loaded in memory but has not run any instruction yet.
+**Goal:** when a program starts, the kernel module must read its `.note.aon` ELF note, if it has one, and save where the AoN region is for the program's address space. The run-time checks then use this saved region. The saved state must then follow the process: a forked child is protected like its parent, and when an address space or a thread goes away its state is removed, so a reused `mm` pointer or tid never picks up old state.
 
-1. **Schedule the work.** A kprobe cannot wait, and reading the program's memory may have to wait. So `aon_exec_pre()` only schedules a task_work (`TWA_RESUME`): a function that the kernel runs for this thread just before it returns to the program, still before its first instruction.
-2. **Look for the note.** That function, `aon_exec_scan()`, calls `aon_elf_find_region()`. It does not read the file on disk. It reads the program headers the ELF loader already put in memory (found through `AT_PHDR` / `AT_PHNUM` in `mm->saved_auxv`) and goes through the `PT_NOTE` segments, looking for the note with owner `AoN` and type 1 (see [`ELF-note.md`](ELF-note.md), "How the kernel module reads it").
+The module only protects programs started (with `execve`) **after** the module was loaded.
+
+| Event                               | Hook                     | Symbol               | Handler               | Source                                                |
+| ----------------------------------- | ------------------------ | -------------------- | --------------------- | ----------------------------------------------------- |
+| exec                                | kprobe                   | `finalize_exec()`    | `aon_exec_pre()`      | [`kernel/aon_lifecycle.c`](../kernel/aon_lifecycle.c) |
+| exec (before the first instruction) | task_work (`TWA_RESUME`) | —                    | `aon_exec_scan()`     | [`kernel/aon_lifecycle.c`](../kernel/aon_lifecycle.c) |
+| fork, clone                         | kprobe                   | `wake_up_new_task()` | `aon_fork_pre()`      | [`kernel/aon_lifecycle.c`](../kernel/aon_lifecycle.c) |
+| address space destroyed             | kprobe                   | `exit_mmap()`        | `aon_exit_mmap_pre()` | [`kernel/aon_lifecycle.c`](../kernel/aon_lifecycle.c) |
+| thread exit                         | kprobe                   | `do_exit()`          | `aon_do_exit_pre()`   | [`kernel/aon_lifecycle.c`](../kernel/aon_lifecycle.c) |
+
+### Exec: read the note
+
+The kprobe on `finalize_exec()` fires when the new program is fully loaded in memory but has not run any instruction yet.
+
+1. **Schedule the work.** A kprobe cannot wait, and the module needs to read the program's memory to read the ELF note.
+   -  So the kprobe handler `aon_exec_pre()` only schedules a task_work (`TWA_RESUME`) `aon_exec_scan()`: a function that the kernel runs for this thread just before it returns to the program, still before its first instruction.
+2. **Look for the note.** The `aon_exec_scan()` function, calls `aon_elf_find_region()`.
+   - It does not read the file on disk. It reads the program headers the ELF loader already put in memory (found through `AT_PHDR` / `AT_PHNUM` in `mm->saved_auxv`) and goes through the `PT_NOTE` segments, looking for the note with owner `AoN` and type 1 (see [`ELF-note.md`](ELF-note.md), "How the kernel module reads it").
 3. **Use the result.**
    - **note found**: it gives the region's runtime limits `[start, end)`. `aon_region_add()` saves them for this address space (`mm`) and the module logs `protecting [start, end)`. The process is now **protected**.
+     - The region is saved per **address space** (`mm`), not per process, so all the threads of a process share it. It is kept in a fixed table of 64 slots, one per `mm` (not a hashtable, see [The state the module keeps](#the-state-the-module-keeps)).
    - **no note** (`-ENOENT`), or not an ELF file (`-ENOEXEC`): an ordinary program. Nothing is saved and the module ignores it.
    - **broken note**, or no free slot in the region table: the module logs a warning and saves nothing. The program is then blocked, not left unprotected: no thread can be armed, so its first `ud2` causes a normal SIGILL and the program is killed.
 
-The region is saved per **address space** (`mm`), not per process, so all the threads of a process share it. It is kept in a fixed table of 64 slots, one per `mm` (not a hashtable, see [The state the module keeps](#the-state-the-module-keeps)).
+### Fork: copy the region
+
+`aon_fork_pre()` runs once the child is created, before it runs its first instruction.
+
+- **fork** (the child has its own `mm`): the module copies the parent's region to the child's `mm` (`aon_region_copy()`). The child's memory is a copy of the parent's, so the addresses are the same.
+- **thread** or **vfork** (`CLONE_VM`): nothing to do, the child shares the parent's `mm`, and so its region.
+
+The armed state is never inherited: it is stored by tid, and a new thread has a new tid.
+
+### Exit: remove the state
+
+- **address space destroyed** (the process exits, or an exec replaces the old `mm`): `aon_exit_mmap_pre()` frees the region's slot (`aon_region_del()`) before the `mm` is freed and its pointer can be reused.
+- **thread exit**: `aon_do_exit_pre()` removes the thread's armed entry, if there is one, so a reused tid never starts armed.
+- **module unload**: `aon_exit()` removes every hook and frees all the armed entries.
 
 ## Run time
 
-The module only looks at the two gates of each block, and at signals. Every hook first checks `aon_region_any()`, a simple counter. When no protected program is running, that check is all the module costs.
+**Goal:** for a protected program, the kernel module must arm a thread when it passes an ingress gate, allow a `syscall` only at an egress gate reached by an armed thread (and disarm it there), refuse every other `syscall`, and disarm a thread before a signal handler runs.
+
+The module only looks at the two gates of each block, and at signals:
+
+| Event          | Hook         | Symbol                 | Handler              | Source                                            |
+| -------------- | ------------ | ---------------------- | -------------------- | ------------------------------------------------- |
+| ingress gate   | die notifier | `notify_die()` (#UD)   | `aon_die()`          | [`kernel/aon_enforce.c`](../kernel/aon_enforce.c) |
+| egress gate    | kprobe       | `x64_sys_call()`       | `aon_syscall_pre()`  | [`kernel/aon_enforce.c`](../kernel/aon_enforce.c) |
+| signal handler | kprobe       | `x64_setup_rt_frame()` | `aon_sigframe_pre()` | [`kernel/aon_enforce.c`](../kernel/aon_enforce.c) |
+
+Every hook first checks `aon_region_any()`, a simple counter. When no protected program is running, that check is all the module costs.
 
 ### Ingress gate: `ud2` → arm
 
-`ud2` causes #UD, the "invalid instruction" fault. The module receives it through a die notifier (`register_die_notifier`, `DIE_TRAP` with `X86_TRAP_UD`). In `aon_die()`:
+**Hook:** die notifier, registered with `register_die_notifier()` and called through `notify_die()` → handler `aon_die()`.
+
+`ud2` causes #UD, the "invalid instruction" fault. The kernel tells every registered die notifier about it before sending a signal; `aon_die()` only acts on `DIE_TRAP` with `X86_TRAP_UD`:
 
 | Where the `ud2` is                                    | What the module does                                                                                                                                                         |
 | ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -196,7 +248,9 @@ The armed state is just **one bit per thread**: arming a thread that is already 
 
 ### Egress gate: `syscall` → check and disarm
 
-Every 64-bit system call goes through `x64_sys_call()`, where the module has a kprobe (`aon_syscall_pre()`). The module finds the `syscall` instruction that entered the kernel from the saved user RIP. RIP points to the next instruction, so the `syscall` is at `RIP - 2`.
+**Hook:** kprobe on `x64_sys_call()` → handler `aon_syscall_pre()`.
+
+Every 64-bit system call goes through `x64_sys_call()`, which picks the kernel function for the system call nr. The module finds the `syscall` instruction that entered the kernel from the saved user RIP. RIP points to the next instruction, so the `syscall` is at `RIP - 2`.
 
 | Where the `syscall` is              | Armed? | Result                                                                                    |
 | ----------------------------------- | ------ | ----------------------------------------------------------------------------------------- |
@@ -211,24 +265,11 @@ A refused system call does not run. By default (`neutralize_mode=1`) the module 
 
 ### Signal rule: disarm before a handler
 
-A signal can arrive while a thread is armed, between the ingress and the egress gate. If the thread stayed armed, the signal handler (or a fake signal frame) could reach an egress gate without passing its ingress gate. So the module has a kprobe on `x64_setup_rt_frame()`, which the kernel calls just before it runs a signal handler, and it **disarms** the thread there. `rt_sigreturn` never arms it again.
+**Hook:** kprobe on `x64_setup_rt_frame()` → handler `aon_sigframe_pre()`.
+
+A signal can arrive while a thread is armed, between the ingress and the egress gate. If the thread stayed armed, the signal handler (or a fake signal frame) could reach an egress gate without passing its ingress gate. So the module hooks `x64_setup_rt_frame()`, which the kernel calls only when it is about to run a signal handler (it builds the handler's frame on the user stack), and `aon_sigframe_pre()` **disarms** the thread there. `rt_sigreturn` never arms it again.
 
 The cost: when the handler returns, the interrupted block reaches its egress gate unarmed and is refused, so the caller has to run the block again. The gain: a handler can never reuse an egress gate, whether the thread it interrupted was armed or not.
-
-## Fork and exit
-
-The region and the armed state must follow the address space and the thread through their life. A new process must be protected like its parent, and a reused `mm` pointer or tid must never pick up old state.
-
-| Event                                                                       | Hook (kprobe)        | What the module does                                                                                                                                          |
-| --------------------------------------------------------------------------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **fork**: a child with its own `mm`                                         | `wake_up_new_task()` | copies the parent's region to the child's `mm` (`aon_region_copy()`). The child's memory is a copy, so the addresses are the same. Done before the child runs |
-| **thread** or **vfork** (`CLONE_VM`)                                        | `wake_up_new_task()` | nothing: the child shares the parent's `mm`, and so its region                                                                                                |
-| **exec**                                                                    | `finalize_exec()`    | the new program decides (see [Exec time](#exec-time)); the old `mm` is destroyed, which removes its region (next row)                                         |
-| **address space destroyed** (process exit, or old `mm` replaced by an exec) | `exit_mmap()`        | frees the region's slot (`aon_region_del()`) before the `mm` is freed and its pointer can be reused                                                           |
-| **thread exit**                                                             | `do_exit()`          | removes the thread's armed entry, if there is one, so a reused tid never starts armed                                                                         |
-| **module unload**                                                           | `aon_exit()`         | removes every hook and frees all the armed entries                                                                                                            |
-
-The armed state is never inherited: it is stored by tid, and a new thread has a new tid.
 
 ## The state the module keeps
 
