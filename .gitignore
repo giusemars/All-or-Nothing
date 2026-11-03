@@ -82,3 +82,6 @@ __pycache__/
 
 # clangd compile databases: machine-specific absolute paths, generated locally
 compile_commands.json
+
+# .log files
+*.log
