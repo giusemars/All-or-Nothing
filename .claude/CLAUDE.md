@@ -154,7 +154,14 @@ system call library, plus the kernel module and the build-time verifier.
 - `kernel/` — AoN kernel module (`aon_mod.ko`)
 - `tools/` — the **build-time verifier** component: `verify_aon.py` (no stray
   `ud2` in the AoN region besides the ingress gates), run on every defended
-  build
+  build; plus `trace_syscalls.py`, a runtime inspection aid (not part of the
+  defense): `tools/trace_syscalls.py [-o LOG] BINARY [ARG...]` runs the
+  program under gdb (needs `gdb`) and logs every system call — name, site
+  (the `syscall` address, its symbol and section, e.g. `aon_text`, and the
+  mapping it is part of), arguments, return value, and the mappings it added
+  or removed — plus signals; exits with the program's status. gdb disables
+  ASLR; single-threaded programs only; programs that single-step themselves
+  (`user/signal`) do not work under it (gdb keeps SIGTRAP)
 - `documentation/` — every guide (the only `.md` files besides `README.md`
   and this one): repository, requirements, defense, attack,
   evaluation, ELF-note
