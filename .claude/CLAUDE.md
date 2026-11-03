@@ -192,3 +192,9 @@ back to the user for lack of privileges.
   without `-` keeps the working directory, so relative paths work.
 - Typical AoN steps that need it (as `<cmd>` above):
   `insmod kernel/aon_mod.ko`, `rmmod aon_mod`, `dmesg`.
+
+## Git (never commit)
+
+Never commit anything, and never offer to: no `git commit`, `git push`,
+`git tag`, amend or stash-and-commit workflows. Leave every change in the
+working tree; the user reviews and commits it themselves.
